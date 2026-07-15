@@ -1,0 +1,27 @@
+# Smart City Route Navigator - default city dataset
+# Format: LOCATION,id,name,x,y  |  ROAD,sourceId,destinationId,weightKm
+# Coordinates are simple layout hints for the MapPanel (not geographic).
+
+# Locations
+LOCATION,L1,Home,60,260
+LOCATION,L2,Market,220,180
+LOCATION,L3,Hospital,380,180
+LOCATION,L4,Mall,540,180
+LOCATION,L5,School,140,340
+LOCATION,L6,Park,320,360
+LOCATION,L7,Airport,540,340
+LOCATION,L8,Stadium,460,60
+
+# Roads
+ROAD,L1,L2,5
+ROAD,L2,L3,4
+ROAD,L3,L4,5
+ROAD,L1,L5,3
+ROAD,L5,L6,6
+ROAD,L6,L4,10
+ROAD,L1,L6,12
+ROAD,L2,L5,6
+ROAD,L3,L7,7
+ROAD,L7,L8,5
+ROAD,L4,L8,6
+ROAD,L5,L3,9
