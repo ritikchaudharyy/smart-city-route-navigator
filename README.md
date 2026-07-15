@@ -9,6 +9,14 @@ Built as a production-quality reference project demonstrating clean
 architecture, core data structures & algorithms, and a fully functional
 Swing GUI — not a tutorial demo.
 
+## Versioning
+
+- v1.0.0 — Initial release
+- v1.1.0 — Documentation, configuration, and GitHub-ready polish
+- v2.0.0 — Planned major enhancement release
+
+See [docs/CHANGELOG.md](docs/CHANGELOG.md) for the full release history.
+
 ## Features
 
 **Core**
@@ -22,14 +30,6 @@ Swing GUI — not a tutorial demo.
 - Menu bar (File, View, Help) and toolbar — every item is fully wired, nothing is a dummy placeholder
 - Scrollable, timestamped activity log; status bar; splash screen on launch
 - Settings dialog with genuinely functional preferences (dark mode, km/mi distance unit)
-
-## Screenshots
-
-*(Add screenshots to `docs/screenshots/` — see that folder's README for expected filenames.)*
-
-| Main Window | Settings |
-|---|---|
-| `docs/screenshots/main-window.png` | `docs/screenshots/settings-dialog.png` |
 
 ## Tech Stack
 
@@ -61,6 +61,10 @@ Full setup instructions, IDE-specific steps, and troubleshooting are in
 | [docs/UML_DIAGRAMS.md](docs/UML_DIAGRAMS.md) | Use case, class, sequence, activity, and component diagrams |
 | [docs/FLOWCHARTS.md](docs/FLOWCHARTS.md) | Application flow, graph creation, route search, Dijkstra's algorithm, and GUI workflow flowcharts |
 | [docs/OPTIMIZATION.md](docs/OPTIMIZATION.md) | Complexity audit of every core operation, the edge-caching optimization applied, and how it's verified |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | High-level architecture overview and package responsibilities |
+| [docs/API.md](docs/API.md) | Main service-layer API entry points |
+| [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) | Known gaps and future constraints |
+| [docs/CHANGELOG.md](docs/CHANGELOG.md) | Release history and roadmap |
 
 ## Project Structure (summary)
 
@@ -102,14 +106,13 @@ grid scale test), and `RouteService`
 The architecture (graph/algorithm/service/UI kept strictly separated)
 was designed so these can be added without restructuring existing code:
 
-- Traffic simulation, road closures, road construction
-- Multiple cities / city switching
-- Favorite routes, route history, export to PDF
-- Shortest-time mode (vs. shortest-distance), vehicle-type-aware routing, emergency routing
-- A\*, Bellman-Ford, and Floyd-Warshall as alternative/comparative algorithms
-- GPS / Google Maps integration
-- Persistent storage (database) and user accounts
-- Full dark mode theming across all Swing components (currently implemented for the map view via `AppSettings`)
+- Live traffic and road-closure simulation
+- A* and other alternative routing algorithms
+- GPS and Maps API integration
+- Database-backed persistence and user accounts
+- JavaFX migration for a more modern UI
+- Multi-city support and city switching
+- Full theme-driven UI customization and richer desktop polish
 
 ## Known Limitations
 

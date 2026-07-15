@@ -1,20 +1,21 @@
 package com.smartcity.navigator.ui;
 
-import com.smartcity.navigator.model.Location;
-
-import javax.swing.BorderFactory;
-import javax.swing.DefaultComboBoxModel;
-import javax.swing.JButton;
-import javax.swing.JComboBox;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
 import java.awt.Color;
 import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Vector;
+import java.util.List;
+
+import javax.swing.DefaultComboBoxModel;
+import javax.swing.JButton;
+import javax.swing.JComboBox;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+
+import com.smartcity.navigator.model.Location;
 
 /**
  * Lets the user pick a source and destination location and trigger a
@@ -30,22 +31,40 @@ public class RoutePanel extends JPanel {
 
     private final JComboBox<Location> sourceCombo = new JComboBox<>();
     private final JComboBox<Location> destinationCombo = new JComboBox<>();
-    private final JButton findRouteButton =
-            new JButton("Find Route", IconFactory.create(IconFactory.IconType.FIND, 16, new Color(30, 110, 40)));
+    private final JButton findRouteButton = new JButton("Find Route", IconFactory.create(IconFactory.IconType.FIND, 16, Color.WHITE));
     private final JButton resetButton = new JButton("Reset");
 
     public RoutePanel() {
         setLayout(new GridBagLayout());
-        setBorder(BorderFactory.createTitledBorder("Route Selection"));
+        setBackground(UITheme.PANEL_BACKGROUND);
+        setOpaque(true);
+        setBorder(UITheme.createSectionBorder("Route Selection"));
+
+        JLabel sourceLabel = new JLabel("Source:");
+        JLabel destinationLabel = new JLabel("Destination:");
+
+        UITheme.styleLabel(sourceLabel);
+        UITheme.styleLabel(destinationLabel);
+
+        UITheme.styleComboBox(sourceCombo);
+        UITheme.styleComboBox(destinationCombo);
+
+        UITheme.styleButton(findRouteButton);
+        UITheme.styleSecondaryButton(resetButton);
+
+        findRouteButton.setToolTipText("Calculate the best route between the selected locations.");
+        resetButton.setToolTipText("Clear both source and destination selections.");
+        findRouteButton.setMnemonic('F');
+        resetButton.setMnemonic('R');
 
         GridBagConstraints c = new GridBagConstraints();
-        c.insets = new Insets(6, 6, 6, 6);
+        c.insets = new Insets(10, 12, 10, 12);
         c.fill = GridBagConstraints.HORIZONTAL;
 
         c.gridx = 0;
         c.gridy = 0;
         c.weightx = 0;
-        add(new JLabel("Source:"), c);
+        add(sourceLabel, c);
 
         c.gridx = 1;
         c.gridy = 0;
@@ -55,14 +74,15 @@ public class RoutePanel extends JPanel {
         c.gridx = 0;
         c.gridy = 1;
         c.weightx = 0;
-        add(new JLabel("Destination:"), c);
+        add(destinationLabel, c);
 
         c.gridx = 1;
         c.gridy = 1;
         c.weightx = 1;
         add(destinationCombo, c);
 
-        JPanel buttonRow = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
+        JPanel buttonRow = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 6));
+        buttonRow.setOpaque(false);
         buttonRow.add(resetButton);
         buttonRow.add(findRouteButton);
 
@@ -84,14 +104,14 @@ public class RoutePanel extends JPanel {
         Location previousSource = (Location) sourceCombo.getSelectedItem();
         Location previousDestination = (Location) destinationCombo.getSelectedItem();
 
-        Vector<Location> model = new Vector<>(locations);
-        sourceCombo.setModel(new DefaultComboBoxModel<>(model));
-        destinationCombo.setModel(new DefaultComboBoxModel<>(new Vector<>(model)));
+        List<Location> locationList = new ArrayList<>(locations);
+        sourceCombo.setModel(new DefaultComboBoxModel<>(locationList.toArray(Location[]::new)));
+        destinationCombo.setModel(new DefaultComboBoxModel<>(locationList.toArray(Location[]::new)));
 
-        if (model.contains(previousSource)) {
+        if (previousSource != null && locationList.contains(previousSource)) {
             sourceCombo.setSelectedItem(previousSource);
         }
-        if (model.contains(previousDestination)) {
+        if (previousDestination != null && locationList.contains(previousDestination)) {
             destinationCombo.setSelectedItem(previousDestination);
         }
     }

@@ -1,6 +1,8 @@
 package com.smartcity.navigator.ui;
 
-import com.smartcity.navigator.utils.AppSettings;
+import java.awt.BorderLayout;
+import java.awt.Component;
+import java.awt.Frame;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -12,9 +14,8 @@ import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JRadioButton;
-import java.awt.BorderLayout;
-import java.awt.Component;
-import java.awt.Frame;
+
+import com.smartcity.navigator.utils.AppSettings;
 
 /**
  * Application settings dialog: dark mode and preferred distance unit.
@@ -36,21 +37,33 @@ public class SettingsDialog extends JDialog {
         AppSettings settings = AppSettings.getInstance();
 
         setLayout(new BorderLayout(10, 10));
+        getContentPane().setBackground(UITheme.WINDOW_BACKGROUND);
 
         JPanel form = new JPanel();
         form.setLayout(new BoxLayout(form, BoxLayout.Y_AXIS));
-        form.setBorder(BorderFactory.createEmptyBorder(20, 20, 10, 20));
+        form.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(UITheme.BORDER_COLOR),
+                BorderFactory.createEmptyBorder(18, 18, 18, 18)));
+        form.setBackground(UITheme.WINDOW_BACKGROUND);
+
+        JLabel titleLabel = new JLabel("Preferences");
+        titleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        UITheme.styleHeading(titleLabel);
 
         darkModeCheck = new JCheckBox("Enable dark mode", settings.isDarkMode());
         darkModeCheck.setAlignmentX(Component.LEFT_ALIGNMENT);
+        UITheme.styleCheckBox(darkModeCheck);
 
         JLabel unitLabel = new JLabel("Distance unit:");
         unitLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        UITheme.styleLabel(unitLabel);
 
         kilometersRadio = new JRadioButton("Kilometers", settings.isMetricUnits());
         milesRadio = new JRadioButton("Miles", !settings.isMetricUnits());
         kilometersRadio.setAlignmentX(Component.LEFT_ALIGNMENT);
         milesRadio.setAlignmentX(Component.LEFT_ALIGNMENT);
+        UITheme.styleRadioButton(kilometersRadio);
+        UITheme.styleRadioButton(milesRadio);
 
         ButtonGroup unitGroup = new ButtonGroup();
         unitGroup.add(kilometersRadio);
@@ -63,6 +76,7 @@ public class SettingsDialog extends JDialog {
         form.add(milesRadio);
 
         JButton okButton = new JButton("OK");
+        UITheme.styleButton(okButton);
         okButton.addActionListener(e -> {
             settings.setDarkMode(darkModeCheck.isSelected());
             settings.setMetricUnits(kilometersRadio.isSelected());
@@ -71,9 +85,12 @@ public class SettingsDialog extends JDialog {
         });
 
         JButton cancelButton = new JButton("Cancel");
+        UITheme.styleSecondaryButton(cancelButton);
         cancelButton.addActionListener(e -> dispose());
 
         JPanel buttonPanel = new JPanel();
+        buttonPanel.setBackground(UITheme.WINDOW_BACKGROUND);
+        buttonPanel.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, UITheme.BORDER_COLOR));
         buttonPanel.add(okButton);
         buttonPanel.add(cancelButton);
 

@@ -17,17 +17,21 @@ public final class DialogHelper {
     }
 
     public static JPanel createInputPanel() {
-        JPanel panel = new JPanel(new GridLayout(0, 2, 8, 8));
-        panel.setBorder(BorderFactory.createEmptyBorder(6, 6, 6, 6));
+        JPanel panel = new JPanel(new GridLayout(0, 2, 10, 10));
+        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        panel.setBackground(UITheme.SUBPANEL_BACKGROUND);
         return panel;
     }
 
     public static JTextField addLabeledField(JPanel panel, String label) {
         JLabel titleLabel = new JLabel(label);
         titleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        UITheme.styleLabel(titleLabel);
         panel.add(titleLabel);
+
         JTextField field = new JTextField();
         field.setColumns(18);
+        UITheme.styleTextField(field);
         panel.add(field);
         return field;
     }

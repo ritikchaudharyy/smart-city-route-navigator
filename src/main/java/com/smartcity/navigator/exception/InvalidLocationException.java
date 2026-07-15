@@ -1,0 +1,7 @@
+package com.smartcity.navigator.exception;
+
+public class InvalidLocationException extends Exception {
+    public InvalidLocationException(String message) {
+        super(message);
+    }
+}

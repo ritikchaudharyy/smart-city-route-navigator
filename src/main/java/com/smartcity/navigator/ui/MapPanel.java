@@ -1,11 +1,5 @@
 package com.smartcity.navigator.ui;
 
-import com.smartcity.navigator.graph.CityGraph;
-import com.smartcity.navigator.model.Edge;
-import com.smartcity.navigator.model.Location;
-import com.smartcity.navigator.utils.AppSettings;
-
-import javax.swing.JPanel;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
@@ -16,6 +10,14 @@ import java.awt.RenderingHints;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+
+import javax.swing.BorderFactory;
+import javax.swing.JPanel;
+
+import com.smartcity.navigator.graph.CityGraph;
+import com.smartcity.navigator.model.Edge;
+import com.smartcity.navigator.model.Location;
+import com.smartcity.navigator.utils.AppSettings;
 
 /**
  * Draws the city road network — locations as circles, roads as lines
@@ -42,7 +44,10 @@ public class MapPanel extends JPanel {
 
     public MapPanel() {
         setPreferredSize(new Dimension(600, 420));
-        setBackground(Color.WHITE);
+        setBackground(UITheme.WINDOW_BACKGROUND);
+        setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(UITheme.BORDER_COLOR),
+                BorderFactory.createEmptyBorder(8, 8, 8, 8)));
     }
 
     /** Sets (or replaces) the graph to render, clearing any existing highlight. */
@@ -87,7 +92,7 @@ public class MapPanel extends JPanel {
         super.paintComponent(g);
 
         boolean dark = AppSettings.getInstance().isDarkMode();
-        setBackground(dark ? new Color(30, 32, 38) : Color.WHITE);
+        setBackground(dark ? new Color(20, 24, 32) : UITheme.WINDOW_BACKGROUND);
 
         if (graph == null || graph.isEmpty()) {
             paintEmptyState(g, dark);
@@ -99,11 +104,11 @@ public class MapPanel extends JPanel {
         g2.scale(zoom, zoom);
 
         Color edgeColor = dark ? new Color(95, 100, 115) : new Color(160, 170, 185);
-        Color nodeColor = dark ? new Color(70, 130, 220) : new Color(50, 100, 200);
-        Color textColor = dark ? Color.WHITE : new Color(30, 30, 40);
-        Color routeColor = new Color(230, 120, 20);
-        Color sourceColor = new Color(30, 160, 60);
-        Color destinationColor = new Color(200, 40, 40);
+        Color nodeColor = dark ? new Color(70, 130, 220) : new Color(60, 115, 195);
+        Color textColor = dark ? Color.WHITE : UITheme.HEADING_COLOR;
+        Color routeColor = new Color(235, 130, 40);
+        Color sourceColor = new Color(75, 190, 110);
+        Color destinationColor = new Color(220, 70, 70);
 
         Set<String> routeIds = new HashSet<>();
         for (Location location : highlightedRoute) {
@@ -148,7 +153,7 @@ public class MapPanel extends JPanel {
 
             g2.setColor(fill);
             g2.fillOval(x - NODE_RADIUS, y - NODE_RADIUS, NODE_RADIUS * 2, NODE_RADIUS * 2);
-            g2.setColor(dark ? Color.BLACK : Color.DARK_GRAY);
+            g2.setColor(dark ? new Color(200, 200, 210) : new Color(70, 70, 90));
             g2.setStroke(new BasicStroke(1.5f));
             g2.drawOval(x - NODE_RADIUS, y - NODE_RADIUS, NODE_RADIUS * 2, NODE_RADIUS * 2);
 
@@ -186,8 +191,8 @@ public class MapPanel extends JPanel {
     }
 
     private void paintEmptyState(Graphics g, boolean dark) {
-        g.setColor(dark ? Color.LIGHT_GRAY : Color.GRAY);
-        g.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        g.setColor(dark ? new Color(130, 140, 155) : UITheme.LABEL_COLOR);
+        g.setFont(new Font("SansSerif", Font.PLAIN, 14));
         g.drawString("No city graph loaded.", 20, 30);
     }
 }

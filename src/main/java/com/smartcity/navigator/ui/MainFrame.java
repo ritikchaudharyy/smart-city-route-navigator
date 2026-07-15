@@ -70,6 +70,7 @@ public class MainFrame extends JFrame {
         add(buildToolBar(), BorderLayout.NORTH);
         add(buildCenterLayout(), BorderLayout.CENTER);
         add(buildStatusBar(), BorderLayout.SOUTH);
+        getContentPane().setBackground(UITheme.WINDOW_BACKGROUND);
 
         routePanel.setOnFindRoute(this::onFindRoute);
         routePanel.setOnReset(this::onClear);
@@ -77,6 +78,7 @@ public class MainFrame extends JFrame {
         mapPanel.setGraph(routeService.getGraph());
         routePanel.refreshLocations(routeService.getAllLocations());
 
+        setMinimumSize(new Dimension(980, 680));
         setSize(Constants.DEFAULT_WINDOW_WIDTH, Constants.DEFAULT_WINDOW_HEIGHT);
         setLocationRelativeTo(null);
     }
@@ -87,6 +89,7 @@ public class MainFrame extends JFrame {
 
     private JMenuBar buildMenuBar() {
         JMenuBar menuBar = new JMenuBar();
+        UITheme.styleMenuBar(menuBar);
         menuBar.add(buildFileMenu());
         menuBar.add(buildEditMenu());
         menuBar.add(buildViewMenu());
@@ -96,11 +99,21 @@ public class MainFrame extends JFrame {
 
     private JMenu buildFileMenu() {
         JMenu fileMenu = new JMenu("File");
+        UITheme.styleMenu(fileMenu);
 
-        JMenuItem newCity = new JMenuItem("New City", IconFactory.create(IconFactory.IconType.NEW_CITY, 16, Color.DARK_GRAY));
-        JMenuItem loadGraph = new JMenuItem("Load Graph", IconFactory.create(IconFactory.IconType.LOAD, 16, Color.DARK_GRAY));
-        JMenuItem saveGraph = new JMenuItem("Save Graph", IconFactory.create(IconFactory.IconType.SAVE, 16, Color.DARK_GRAY));
-        JMenuItem exitItem = new JMenuItem("Exit", IconFactory.create(IconFactory.IconType.EXIT, 16, Color.DARK_GRAY));
+        JMenuItem newCity = new JMenuItem("New City", IconFactory.create(IconFactory.IconType.NEW_CITY, 16, UITheme.LABEL_COLOR));
+        JMenuItem loadGraph = new JMenuItem("Load Graph", IconFactory.create(IconFactory.IconType.LOAD, 16, UITheme.LABEL_COLOR));
+        JMenuItem saveGraph = new JMenuItem("Save Graph", IconFactory.create(IconFactory.IconType.SAVE, 16, UITheme.LABEL_COLOR));
+        JMenuItem exitItem = new JMenuItem("Exit", IconFactory.create(IconFactory.IconType.EXIT, 16, UITheme.LABEL_COLOR));
+        UITheme.styleMenuItem(newCity);
+        UITheme.styleMenuItem(loadGraph);
+        UITheme.styleMenuItem(saveGraph);
+        UITheme.styleMenuItem(exitItem);
+
+        newCity.setAccelerator(javax.swing.KeyStroke.getKeyStroke("control N"));
+        loadGraph.setAccelerator(javax.swing.KeyStroke.getKeyStroke("control O"));
+        saveGraph.setAccelerator(javax.swing.KeyStroke.getKeyStroke("control S"));
+        exitItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke("control Q"));
 
         newCity.addActionListener(e -> onNewCity());
         loadGraph.addActionListener(e -> onLoadGraph());
@@ -117,11 +130,21 @@ public class MainFrame extends JFrame {
 
     private JMenu buildEditMenu() {
         JMenu editMenu = new JMenu("Edit Graph");
+        UITheme.styleMenu(editMenu);
 
         JMenuItem addLocation = new JMenuItem("Add Location...");
         JMenuItem removeLocation = new JMenuItem("Remove Location...");
         JMenuItem addRoad = new JMenuItem("Add Road...");
         JMenuItem removeRoad = new JMenuItem("Remove Road...");
+        UITheme.styleMenuItem(addLocation);
+        UITheme.styleMenuItem(removeLocation);
+        UITheme.styleMenuItem(addRoad);
+        UITheme.styleMenuItem(removeRoad);
+
+        addLocation.setAccelerator(javax.swing.KeyStroke.getKeyStroke("control shift N"));
+        removeLocation.setAccelerator(javax.swing.KeyStroke.getKeyStroke("control shift R"));
+        addRoad.setAccelerator(javax.swing.KeyStroke.getKeyStroke("control shift A"));
+        removeRoad.setAccelerator(javax.swing.KeyStroke.getKeyStroke("control shift D"));
 
         addLocation.addActionListener(e -> onAddLocation());
         removeLocation.addActionListener(e -> onRemoveLocation());
@@ -138,12 +161,25 @@ public class MainFrame extends JFrame {
 
     private JMenu buildViewMenu() {
         JMenu viewMenu = new JMenu("View");
+        UITheme.styleMenu(viewMenu);
 
-        JMenuItem zoomIn = new JMenuItem("Zoom In", IconFactory.create(IconFactory.IconType.ZOOM_IN, 16, Color.DARK_GRAY));
-        JMenuItem zoomOut = new JMenuItem("Zoom Out", IconFactory.create(IconFactory.IconType.ZOOM_OUT, 16, Color.DARK_GRAY));
-        JMenuItem resetView = new JMenuItem("Reset", IconFactory.create(IconFactory.IconType.RESET_VIEW, 16, Color.DARK_GRAY));
-        JMenuItem settingsItem = new JMenuItem("Settings...", IconFactory.create(IconFactory.IconType.SETTINGS, 16, Color.DARK_GRAY));
+        JMenuItem refreshItem = new JMenuItem("Refresh", IconFactory.create(IconFactory.IconType.REFRESH, 16, UITheme.LABEL_COLOR));
+        JMenuItem zoomIn = new JMenuItem("Zoom In", IconFactory.create(IconFactory.IconType.ZOOM_IN, 16, UITheme.LABEL_COLOR));
+        JMenuItem zoomOut = new JMenuItem("Zoom Out", IconFactory.create(IconFactory.IconType.ZOOM_OUT, 16, UITheme.LABEL_COLOR));
+        JMenuItem resetView = new JMenuItem("Reset View", IconFactory.create(IconFactory.IconType.RESET_VIEW, 16, UITheme.LABEL_COLOR));
+        JMenuItem settingsItem = new JMenuItem("Settings...", IconFactory.create(IconFactory.IconType.SETTINGS, 16, UITheme.LABEL_COLOR));
+        UITheme.styleMenuItem(refreshItem);
+        UITheme.styleMenuItem(zoomIn);
+        UITheme.styleMenuItem(zoomOut);
+        UITheme.styleMenuItem(resetView);
+        UITheme.styleMenuItem(settingsItem);
 
+        refreshItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke("F5"));
+        zoomIn.setAccelerator(javax.swing.KeyStroke.getKeyStroke("control PLUS"));
+        zoomOut.setAccelerator(javax.swing.KeyStroke.getKeyStroke("control MINUS"));
+        resetView.setAccelerator(javax.swing.KeyStroke.getKeyStroke("control 0"));
+
+        refreshItem.addActionListener(e -> onRefresh());
         zoomIn.addActionListener(e -> {
             mapPanel.zoomIn();
             statusBar.setText("Zoomed in");
@@ -158,6 +194,8 @@ public class MainFrame extends JFrame {
         });
         settingsItem.addActionListener(e -> onSettings());
 
+        viewMenu.add(refreshItem);
+        viewMenu.addSeparator();
         viewMenu.add(zoomIn);
         viewMenu.add(zoomOut);
         viewMenu.add(resetView);
@@ -168,30 +206,67 @@ public class MainFrame extends JFrame {
 
     private JMenu buildHelpMenu() {
         JMenu helpMenu = new JMenu("Help");
-        JMenuItem aboutItem = new JMenuItem("About", IconFactory.create(IconFactory.IconType.INFO, 16, Color.DARK_GRAY));
+        UITheme.styleMenu(helpMenu);
+        JMenuItem aboutItem = new JMenuItem("About", IconFactory.create(IconFactory.IconType.INFO, 16, UITheme.LABEL_COLOR));
+        JMenuItem docsItem = new JMenuItem("Documentation");
+        UITheme.styleMenuItem(aboutItem);
+        UITheme.styleMenuItem(docsItem);
+
+        aboutItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke("F1"));
+        docsItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke("control D"));
+
         aboutItem.addActionListener(e -> new AboutDialog(this).setVisible(true));
+        docsItem.addActionListener(e -> JOptionPane.showMessageDialog(this,
+                "Documentation is available in the docs/ folder.", "Documentation", JOptionPane.INFORMATION_MESSAGE));
+
         helpMenu.add(aboutItem);
+        helpMenu.add(docsItem);
         return helpMenu;
     }
 
     private JToolBar buildToolBar() {
         JToolBar toolBar = new JToolBar();
         toolBar.setFloatable(false);
+        toolBar.setBackground(UITheme.WINDOW_BACKGROUND);
+        toolBar.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, UITheme.BORDER_COLOR));
+        toolBar.setMargin(new java.awt.Insets(10, 16, 10, 16));
 
-        JButton findButton = new JButton("Find Route", IconFactory.create(IconFactory.IconType.FIND, 18, new Color(30, 110, 40)));
-        JButton clearButton = new JButton("Clear", IconFactory.create(IconFactory.IconType.CLEAR, 18, new Color(150, 40, 40)));
-        JButton refreshButton = new JButton("Refresh", IconFactory.create(IconFactory.IconType.REFRESH, 18, new Color(30, 80, 150)));
-        JButton exitButton = new JButton("Exit", IconFactory.create(IconFactory.IconType.EXIT, 18, Color.DARK_GRAY));
+        JButton findButton = new JButton("Find Route", IconFactory.create(IconFactory.IconType.FIND, 18, Color.WHITE));
+        JButton clearButton = new JButton("Clear", IconFactory.create(IconFactory.IconType.CLEAR, 18, UITheme.LABEL_COLOR));
+        JButton refreshButton = new JButton("Refresh", IconFactory.create(IconFactory.IconType.REFRESH, 18, UITheme.LABEL_COLOR));
+        JButton settingsButton = new JButton("Settings", IconFactory.create(IconFactory.IconType.SETTINGS, 18, UITheme.LABEL_COLOR));
+        JButton exitButton = new JButton("Exit", IconFactory.create(IconFactory.IconType.EXIT, 18, UITheme.LABEL_COLOR));
+
+        UITheme.stylePrimaryToolBarButton(findButton);
+        UITheme.styleSecondaryToolBarButton(clearButton);
+        UITheme.styleSecondaryToolBarButton(refreshButton);
+        UITheme.styleSecondaryToolBarButton(settingsButton);
+        UITheme.styleSecondaryToolBarButton(exitButton);
+
+        findButton.setToolTipText("Calculate the shortest route between two selected locations.");
+        clearButton.setToolTipText("Clear source and destination selections.");
+        refreshButton.setToolTipText("Reload graph visualization.");
+        settingsButton.setToolTipText("Configure application preferences.");
+        exitButton.setToolTipText("Close the application safely.");
+
+        findButton.setMnemonic('F');
+        clearButton.setMnemonic('C');
+        refreshButton.setMnemonic('R');
+        settingsButton.setMnemonic('S');
+        exitButton.setMnemonic('E');
 
         findButton.addActionListener(e -> onFindRoute());
         clearButton.addActionListener(e -> onClear());
         refreshButton.addActionListener(e -> onRefresh());
+        settingsButton.addActionListener(e -> onSettings());
         exitButton.addActionListener(e -> confirmExit());
 
         toolBar.add(findButton);
+        toolBar.addSeparator(new java.awt.Dimension(12, 0));
         toolBar.add(clearButton);
         toolBar.add(refreshButton);
-        toolBar.addSeparator();
+        toolBar.add(settingsButton);
+        toolBar.addSeparator(new java.awt.Dimension(12, 0));
         toolBar.add(exitButton);
         return toolBar;
     }
@@ -199,11 +274,14 @@ public class MainFrame extends JFrame {
     private JComponent buildCenterLayout() {
         JPanel westPanel = new JPanel(new BorderLayout(8, 8));
         westPanel.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 4));
+        UITheme.stylePanel(westPanel);
         westPanel.add(routePanel, BorderLayout.NORTH);
         westPanel.add(resultPanel, BorderLayout.CENTER);
         westPanel.setPreferredSize(new Dimension(320, 0));
 
         JScrollPane mapScroll = new JScrollPane(mapPanel);
+        mapScroll.setBackground(UITheme.WINDOW_BACKGROUND);
+        mapScroll.setBorder(BorderFactory.createLineBorder(UITheme.BORDER_COLOR));
 
         JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, westPanel, mapScroll);
         splitPane.setDividerLocation(340);
@@ -214,8 +292,10 @@ public class MainFrame extends JFrame {
 
     private JComponent buildStatusBar() {
         JPanel panel = new JPanel(new BorderLayout());
-        panel.setBorder(BorderFactory.createEmptyBorder(4, 10, 4, 10));
+        panel.setBorder(BorderFactory.createEmptyBorder(8, 14, 8, 14));
+        UITheme.styleStatusPanel(panel);
         statusBar.setText(Formatter.formatLocationStatus("Ready", routeService.getAllLocations().size()));
+        UITheme.styleStatusLabel(statusBar);
         panel.add(statusBar, BorderLayout.WEST);
         return panel;
     }

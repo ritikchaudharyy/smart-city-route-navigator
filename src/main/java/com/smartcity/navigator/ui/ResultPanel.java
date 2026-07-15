@@ -1,19 +1,19 @@
 package com.smartcity.navigator.ui;
 
-import com.smartcity.navigator.model.PathResult;
-import com.smartcity.navigator.utils.Formatter;
+import java.awt.BorderLayout;
+import java.awt.Dimension;
+import java.awt.GridLayout;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 import javax.swing.BorderFactory;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
-import java.awt.BorderLayout;
-import java.awt.Dimension;
-import java.awt.Font;
-import java.awt.GridLayout;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+
+import com.smartcity.navigator.model.PathResult;
+import com.smartcity.navigator.utils.Formatter;
 
 /**
  * Displays the outcome of the most recent route search: the total
@@ -31,30 +31,45 @@ public class ResultPanel extends JPanel {
 
     public ResultPanel() {
         setLayout(new BorderLayout(8, 8));
-        setBorder(BorderFactory.createTitledBorder("Route Result"));
+        setBackground(UITheme.PANEL_BACKGROUND);
+        setOpaque(true);
+        setBorder(UITheme.createSectionBorder("Route Result"));
 
-        JPanel summary = new JPanel(new GridLayout(2, 1, 4, 4));
+        JPanel summary = new JPanel(new GridLayout(2, 1, 6, 6));
+        UITheme.styleSectionPanel(summary);
 
         JPanel distanceRow = new JPanel(new BorderLayout());
-        distanceRow.add(new JLabel("Total Distance: "), BorderLayout.WEST);
-        distanceValueLabel.setFont(distanceValueLabel.getFont().deriveFont(Font.BOLD, 15f));
+        UITheme.stylePanel(distanceRow);
+        JLabel distanceLabel = new JLabel("Total Distance:");
+        UITheme.styleLabel(distanceLabel);
+        distanceValueLabel.setFont(UITheme.HEADER_FONT);
+        distanceValueLabel.setForeground(UITheme.HEADING_COLOR);
+        distanceRow.add(distanceLabel, BorderLayout.WEST);
         distanceRow.add(distanceValueLabel, BorderLayout.CENTER);
 
         JPanel routeRow = new JPanel(new BorderLayout());
-        routeRow.add(new JLabel("Route: "), BorderLayout.WEST);
-        routeValueLabel.setFont(routeValueLabel.getFont().deriveFont(Font.PLAIN, 13f));
+        UITheme.stylePanel(routeRow);
+        JLabel routeLabel = new JLabel("Route:");
+        UITheme.styleLabel(routeLabel);
+        routeValueLabel.setFont(UITheme.BODY_FONT);
+        routeValueLabel.setForeground(UITheme.LABEL_COLOR);
+        routeRow.add(routeLabel, BorderLayout.WEST);
         routeRow.add(routeValueLabel, BorderLayout.CENTER);
 
         summary.add(distanceRow);
         summary.add(routeRow);
 
         logArea.setEditable(false);
-        logArea.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
+        logArea.setFont(UITheme.MONO_FONT);
+        logArea.setBackground(UITheme.SUBPANEL_BACKGROUND);
         logArea.setLineWrap(true);
         logArea.setWrapStyleWord(true);
+        logArea.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
 
         JScrollPane scrollPane = new JScrollPane(logArea);
-        scrollPane.setBorder(BorderFactory.createTitledBorder("Activity Log"));
+        scrollPane.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createTitledBorder("Activity Log"),
+                BorderFactory.createEmptyBorder(6, 6, 6, 6)));
         scrollPane.setPreferredSize(new Dimension(260, 200));
 
         add(summary, BorderLayout.NORTH);

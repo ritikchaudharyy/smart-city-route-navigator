@@ -24,6 +24,13 @@
     </properties>
 
     <dependencies>
+        <!-- FlatLaf for a modern Light look and feel -->
+        <dependency>
+            <groupId>com.formdev</groupId>
+            <artifactId>flatlaf</artifactId>
+            <version>3.1</version>
+        </dependency>
+
         <!-- JUnit 5 for unit testing the graph and Dijkstra algorithm -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
