@@ -12,6 +12,7 @@ import com.formdev.flatlaf.FlatLightLaf;
 import com.smartcity.navigator.graph.GraphLoadException;
 import com.smartcity.navigator.service.AuthService;
 import com.smartcity.navigator.service.RouteService;
+import com.smartcity.navigator.service.ai.GeminiService;
 import com.smartcity.navigator.ui.LoginFrame;
 import com.smartcity.navigator.ui.MainFrame;
 import com.smartcity.navigator.ui.SplashScreen;
@@ -103,7 +104,8 @@ public final class Main {
     private static void launchMainFrame() {
         try {
             RouteService routeService = new RouteService();
-            MainFrame frame = new MainFrame(routeService);
+            GeminiService geminiService = new GeminiService();
+            MainFrame frame = new MainFrame(routeService, geminiService);
             frame.setTitle(AppConfig.getProperty("app.name", "Smart City Route Navigator") + " v" + AppConfig.getProperty("app.version", "1.0.0"));
             frame.setVisible(true);
         } catch (GraphLoadException e) {

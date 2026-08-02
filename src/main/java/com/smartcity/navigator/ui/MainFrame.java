@@ -3,26 +3,15 @@ package com.smartcity.navigator.ui;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Color;
-import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.awt.Insets;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
-import java.io.File;
-import java.util.Comparator;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.ButtonGroup;
 import javax.swing.JButton;
-import javax.swing.JComboBox;
-import javax.swing.JComponent;
-import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JMenu;
@@ -33,13 +22,9 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JToggleButton;
-import javax.swing.JTextField;
 import javax.swing.SwingConstants;
-import javax.swing.filechooser.FileNameExtensionFilter;
 
 import com.smartcity.navigator.graph.CityGraph;
-import com.smartcity.navigator.graph.GraphLoadException;
-import com.smartcity.navigator.model.Location;
 import com.smartcity.navigator.model.PathResult;
 import com.smartcity.navigator.service.RouteService;
 import com.smartcity.navigator.service.ai.GeminiService;
@@ -59,9 +44,6 @@ public class MainFrame extends JFrame {
     private RoutePanel routePanel;
     private ResultPanel resultPanel;
     private MapPanel mapPanel;
-    private JPanel sharedMapWorkspace;
-    private JPanel plannerMapHost;
-    private JPanel fullMapHost;
 
     // View Switching
     private final CardLayout workspaceCardLayout = new CardLayout();
@@ -77,25 +59,13 @@ public class MainFrame extends JFrame {
     private JLabel workspaceSubtitle;
     private JLabel graphStatusChip;
 
-    /** Preserves the original application entry-point contract. */
-    public MainFrame(RouteService routeService) {
-        this(routeService, new GeminiService());
-    }
-
     public MainFrame(RouteService routeService, GeminiService geminiService) {
         this.routeService = routeService;
         this.geminiService = geminiService;
 
         setTitle("Smart City Route Navigator - Enterprise Dashboard");
-        setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-        addWindowListener(new WindowAdapter() {
-            @Override
-            public void windowClosing(WindowEvent event) {
-                confirmExit();
-            }
-        });
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setMinimumSize(new Dimension(1280, 800));
-        setSize(1440, 900);
         setLocationRelativeTo(null);
 
         initComponents();
@@ -108,10 +78,6 @@ public class MainFrame extends JFrame {
         routePanel = new RoutePanel(this, routeService, geminiService);
         resultPanel = new ResultPanel();
         mapPanel = new MapPanel();
-        sharedMapWorkspace = new JPanel(new BorderLayout());
-        sharedMapWorkspace.setBackground(UITheme.WINDOW_BACKGROUND);
-        sharedMapWorkspace.add(buildMapToolbar(), BorderLayout.NORTH);
-        sharedMapWorkspace.add(mapPanel, BorderLayout.CENTER);
 
         statusLabel = new JLabel("Ready");
         UITheme.styleStatusLabel(statusLabel);
@@ -123,89 +89,27 @@ public class MainFrame extends JFrame {
 
         JMenu fileMenu = new JMenu("File");
         UITheme.styleMenu(fileMenu);
-        JMenuItem newCityItem = new JMenuItem("New City", IconFactory.getIcon(IconFactory.IconType.NEW_CITY, 15, UITheme.LABEL_COLOR));
-        JMenuItem loadGraphItem = new JMenuItem("Load Graph", IconFactory.getIcon(IconFactory.IconType.LOAD, 15, UITheme.LABEL_COLOR));
-        JMenuItem saveGraphItem = new JMenuItem("Save Graph", IconFactory.getIcon(IconFactory.IconType.SAVE, 15, UITheme.LABEL_COLOR));
         JMenuItem exitItem = new JMenuItem("Exit", IconFactory.getIcon(IconFactory.IconType.EXIT, 15, UITheme.LABEL_COLOR));
-        UITheme.styleMenuItem(newCityItem);
-        UITheme.styleMenuItem(loadGraphItem);
-        UITheme.styleMenuItem(saveGraphItem);
         UITheme.styleMenuItem(exitItem);
-        newCityItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke("control N"));
-        loadGraphItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke("control O"));
-        saveGraphItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke("control S"));
-        exitItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke("control Q"));
-        newCityItem.addActionListener(event -> onNewCity());
-        loadGraphItem.addActionListener(event -> onLoadGraph());
-        saveGraphItem.addActionListener(event -> onSaveGraph());
-        exitItem.addActionListener(event -> confirmExit());
-        fileMenu.add(newCityItem);
-        fileMenu.add(loadGraphItem);
-        fileMenu.add(saveGraphItem);
-        fileMenu.addSeparator();
+        exitItem.addActionListener(e -> System.exit(0));
         fileMenu.add(exitItem);
 
         JMenu graphMenu = new JMenu("Graph");
         UITheme.styleMenu(graphMenu);
         JMenuItem refreshItem = new JMenuItem("Reload Graph", IconFactory.getIcon(IconFactory.IconType.REFRESH, 15, UITheme.LABEL_COLOR));
-        JMenuItem addLocationItem = new JMenuItem("Add Location...");
-        JMenuItem removeLocationItem = new JMenuItem("Remove Location...");
-        JMenuItem addRoadItem = new JMenuItem("Add Road...");
-        JMenuItem removeRoadItem = new JMenuItem("Remove Road...");
         UITheme.styleMenuItem(refreshItem);
-        UITheme.styleMenuItem(addLocationItem);
-        UITheme.styleMenuItem(removeLocationItem);
-        UITheme.styleMenuItem(addRoadItem);
-        UITheme.styleMenuItem(removeRoadItem);
-        refreshItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke("F5"));
-        addLocationItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke("control shift N"));
-        removeLocationItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke("control shift R"));
-        addRoadItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke("control shift A"));
-        removeRoadItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke("control shift D"));
-        refreshItem.addActionListener(event -> onRefresh());
-        addLocationItem.addActionListener(event -> onAddLocation());
-        removeLocationItem.addActionListener(event -> onRemoveLocation());
-        addRoadItem.addActionListener(event -> onAddRoad());
-        removeRoadItem.addActionListener(event -> onRemoveRoad());
+        refreshItem.addActionListener(e -> loadGraphData());
         graphMenu.add(refreshItem);
-        graphMenu.addSeparator();
-        graphMenu.add(addLocationItem);
-        graphMenu.add(removeLocationItem);
-        graphMenu.addSeparator();
-        graphMenu.add(addRoadItem);
-        graphMenu.add(removeRoadItem);
-
-        JMenu viewMenu = new JMenu("View");
-        UITheme.styleMenu(viewMenu);
-        JMenuItem zoomInItem = new JMenuItem("Zoom In", IconFactory.getIcon(IconFactory.IconType.ZOOM_IN, 15, UITheme.LABEL_COLOR));
-        JMenuItem zoomOutItem = new JMenuItem("Zoom Out", IconFactory.getIcon(IconFactory.IconType.ZOOM_OUT, 15, UITheme.LABEL_COLOR));
-        JMenuItem resetViewItem = new JMenuItem("Reset View", IconFactory.getIcon(IconFactory.IconType.ZOOM_RESET, 15, UITheme.LABEL_COLOR));
-        JMenuItem settingsItem = new JMenuItem("Settings...", IconFactory.getIcon(IconFactory.IconType.SETTINGS, 15, UITheme.LABEL_COLOR));
-        UITheme.styleMenuItem(zoomInItem);
-        UITheme.styleMenuItem(zoomOutItem);
-        UITheme.styleMenuItem(resetViewItem);
-        UITheme.styleMenuItem(settingsItem);
-        zoomInItem.addActionListener(event -> zoomMapIn());
-        zoomOutItem.addActionListener(event -> zoomMapOut());
-        resetViewItem.addActionListener(event -> resetMapView());
-        settingsItem.addActionListener(event -> onSettings());
-        viewMenu.add(zoomInItem);
-        viewMenu.add(zoomOutItem);
-        viewMenu.add(resetViewItem);
-        viewMenu.addSeparator();
-        viewMenu.add(settingsItem);
 
         JMenu helpMenu = new JMenu("Help");
         UITheme.styleMenu(helpMenu);
         JMenuItem aboutItem = new JMenuItem("About Navigator", IconFactory.getIcon(IconFactory.IconType.INFO, 15, UITheme.LABEL_COLOR));
         UITheme.styleMenuItem(aboutItem);
-        aboutItem.setAccelerator(javax.swing.KeyStroke.getKeyStroke("F1"));
-        aboutItem.addActionListener(event -> showAboutDialog());
+        aboutItem.addActionListener(e -> showAboutDialog());
         helpMenu.add(aboutItem);
 
         menuBar.add(fileMenu);
         menuBar.add(graphMenu);
-        menuBar.add(viewMenu);
         menuBar.add(helpMenu);
         setJMenuBar(menuBar);
     }
@@ -281,7 +185,6 @@ public class MainFrame extends JFrame {
 
         navGroup.add(navPlannerBtn);
         navGroup.add(navMapBtn);
-        navPlannerBtn.setSelected(true);
 
         sidebar.add(navPlannerBtn);
         sidebar.add(Box.createVerticalStrut(4));
@@ -377,11 +280,12 @@ public class MainFrame extends JFrame {
         leftScroll.getVerticalScrollBar().setUnitIncrement(12);
         leftScroll.setPreferredSize(new Dimension(380, 0));
 
-        plannerMapHost = new JPanel(new BorderLayout());
-        plannerMapHost.setBackground(UITheme.WINDOW_BACKGROUND);
-        plannerMapHost.add(sharedMapWorkspace, BorderLayout.CENTER);
+        JPanel mapContainer = new JPanel(new BorderLayout());
+        mapContainer.setBackground(UITheme.WINDOW_BACKGROUND);
+        mapContainer.add(buildMapToolbar(), BorderLayout.NORTH);
+        mapContainer.add(mapPanel, BorderLayout.CENTER);
 
-        JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, leftScroll, plannerMapHost);
+        JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, leftScroll, mapContainer);
         splitPane.setDividerLocation(390);
         splitPane.setDividerSize(6);
         splitPane.setBorder(null);
@@ -395,9 +299,8 @@ public class MainFrame extends JFrame {
         JPanel container = new JPanel(new BorderLayout(12, 12));
         container.setBackground(UITheme.WINDOW_BACKGROUND);
         container.setBorder(BorderFactory.createEmptyBorder(0, 12, 12, 12));
-        fullMapHost = new JPanel(new BorderLayout());
-        fullMapHost.setBackground(UITheme.WINDOW_BACKGROUND);
-        container.add(fullMapHost, BorderLayout.CENTER);
+        container.add(buildMapToolbar(), BorderLayout.NORTH);
+        container.add(mapPanel, BorderLayout.CENTER);
         return container;
     }
 
@@ -444,7 +347,6 @@ public class MainFrame extends JFrame {
     }
 
     private void switchWorkspace(String cardName, JToggleButton activeBtn) {
-        moveMapWorkspace(activeBtn == navMapBtn ? fullMapHost : plannerMapHost);
         workspaceCardLayout.show(workspaceContainer, cardName);
         UITheme.styleSidebarNavigationButton(navPlannerBtn, activeBtn == navPlannerBtn);
         UITheme.styleSidebarNavigationButton(navMapBtn, activeBtn == navMapBtn);
@@ -456,27 +358,6 @@ public class MainFrame extends JFrame {
             workspaceTitle.setText("Route Planner");
             workspaceSubtitle.setText("Plan deterministic shortest routes with the city graph.");
         }
-    }
-
-    /**
-     * A Swing component can belong to only one parent. Reparent the shared
-     * graph canvas as the user changes workspace so the same graph, zoom, and
-     * highlighted route remain visible in both views.
-     */
-    private void moveMapWorkspace(JPanel destinationHost) {
-        if (destinationHost == null || sharedMapWorkspace.getParent() == destinationHost) {
-            return;
-        }
-
-        Container currentHost = sharedMapWorkspace.getParent();
-        if (currentHost != null) {
-            currentHost.remove(sharedMapWorkspace);
-            currentHost.revalidate();
-            currentHost.repaint();
-        }
-        destinationHost.add(sharedMapWorkspace, BorderLayout.CENTER);
-        destinationHost.revalidate();
-        destinationHost.repaint();
     }
 
     public void loadGraphData() {
@@ -531,276 +412,10 @@ public class MainFrame extends JFrame {
         statusLabel.setText(message);
     }
 
-    private void zoomMapIn() {
-        mapPanel.zoomIn();
-        updateStatus("Zoomed to " + mapPanel.getZoomPercentage() + "%.", UITheme.SECONDARY_TEXT);
-    }
-
-    private void zoomMapOut() {
-        mapPanel.zoomOut();
-        updateStatus("Zoomed to " + mapPanel.getZoomPercentage() + "%.", UITheme.SECONDARY_TEXT);
-    }
-
-    private void resetMapView() {
-        mapPanel.resetZoom();
-        updateStatus("View reset to 100%.", UITheme.SECONDARY_TEXT);
-    }
-
-    private void onRefresh() {
-        loadGraphData();
-        clearActiveRoute();
-    }
-
-    private void onAddLocation() {
-        JPanel panel = DialogHelper.createInputPanel();
-        JTextField idField = DialogHelper.addLabeledField(panel, "Location ID:");
-        JTextField nameField = DialogHelper.addLabeledField(panel, "Name:");
-        JTextField xField = DialogHelper.addLabeledField(panel, "X coordinate:");
-        JTextField yField = DialogHelper.addLabeledField(panel, "Y coordinate:");
-        xField.setText("0");
-        yField.setText("0");
-
-        if (showDialog(panel, "Add Location") != JOptionPane.OK_OPTION) {
-            return;
-        }
-        try {
-            routeService.addLocation(idField.getText(), nameField.getText(),
-                    parseCoordinate(xField.getText(), "X coordinate"),
-                    parseCoordinate(yField.getText(), "Y coordinate"));
-            onRefresh();
-            resultPanel.appendLog("Added location " + idField.getText().trim());
-            updateStatus("Location added.", UITheme.SUCCESS_COLOR);
-        } catch (IllegalArgumentException exception) {
-            showError("Add Location", exception.getMessage());
-        }
-    }
-
-    private void onRemoveLocation() {
-        if (routeService.getAllLocations().isEmpty()) {
-            showError("Remove Location", "No locations are available to remove.");
-            return;
-        }
-
-        JComboBox<String> locationSelector = createLocationSelector();
-        if (showDialog(locationSelector, "Remove Location") != JOptionPane.OK_OPTION) {
-            return;
-        }
-        String selectedId = (String) locationSelector.getSelectedItem();
-        if (selectedId == null) {
-            return;
-        }
-        if (!routeService.removeLocation(selectedId)) {
-            showError("Remove Location", "The selected location could not be removed.");
-            return;
-        }
-
-        onRefresh();
-        resultPanel.appendLog("Removed location " + selectedId);
-        updateStatus("Location removed.", UITheme.SUCCESS_COLOR);
-    }
-
-    private void onAddRoad() {
-        if (routeService.getAllLocations().size() < 2) {
-            showError("Add Road", "At least two locations are required to add a road.");
-            return;
-        }
-
-        JPanel panel = DialogHelper.createInputPanel();
-        JComboBox<String> sourceSelector = createLocationSelector();
-        JComboBox<String> destinationSelector = createLocationSelector();
-        panel.add(new JLabel("Source:"));
-        panel.add(sourceSelector);
-        panel.add(new JLabel("Destination:"));
-        panel.add(destinationSelector);
-        JTextField weightField = DialogHelper.addLabeledField(panel, "Distance (km):");
-        weightField.setText("1");
-
-        if (showDialog(panel, "Add Road") != JOptionPane.OK_OPTION) {
-            return;
-        }
-        String sourceId = (String) sourceSelector.getSelectedItem();
-        String destinationId = (String) destinationSelector.getSelectedItem();
-        try {
-            routeService.addRoad(sourceId, destinationId, parsePositiveDistance(weightField.getText()));
-            onRefresh();
-            resultPanel.appendLog("Added road " + sourceId + " to " + destinationId);
-            updateStatus("Road added.", UITheme.SUCCESS_COLOR);
-        } catch (IllegalArgumentException exception) {
-            showError("Add Road", exception.getMessage());
-        }
-    }
-
-    private void onRemoveRoad() {
-        if (routeService.getAllLocations().size() < 2) {
-            showError("Remove Road", "At least two locations are required to remove a road.");
-            return;
-        }
-
-        JPanel panel = DialogHelper.createInputPanel();
-        JComboBox<String> sourceSelector = createLocationSelector();
-        JComboBox<String> destinationSelector = createLocationSelector();
-        panel.add(new JLabel("Source:"));
-        panel.add(sourceSelector);
-        panel.add(new JLabel("Destination:"));
-        panel.add(destinationSelector);
-
-        if (showDialog(panel, "Remove Road") != JOptionPane.OK_OPTION) {
-            return;
-        }
-        String sourceId = (String) sourceSelector.getSelectedItem();
-        String destinationId = (String) destinationSelector.getSelectedItem();
-        if (!routeService.removeRoad(sourceId, destinationId)) {
-            showError("Remove Road", "The selected road could not be removed.");
-            return;
-        }
-
-        onRefresh();
-        resultPanel.appendLog("Removed road " + sourceId + " to " + destinationId);
-        updateStatus("Road removed.", UITheme.SUCCESS_COLOR);
-    }
-
-    private JComboBox<String> createLocationSelector() {
-        String[] locationIds = routeService.getAllLocations().stream()
-                .map(Location::getId)
-                .sorted(Comparator.naturalOrder())
-                .toArray(String[]::new);
-        JComboBox<String> selector = new JComboBox<>(locationIds);
-        UITheme.styleComboBox(selector);
-        return selector;
-    }
-
-    private int showDialog(JComponent content, String title) {
-        return JOptionPane.showConfirmDialog(this, content, title,
-                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-    }
-
-    private void onNewCity() {
-        int confirmation = JOptionPane.showConfirmDialog(this,
-                "This resets the graph to the bundled default city and discards unsaved changes. Continue?",
-                "New City", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
-        if (confirmation != JOptionPane.YES_OPTION) {
-            return;
-        }
-        try {
-            routeService.resetToDefaultCity();
-            onRefresh();
-            resultPanel.appendLog("Loaded the default city.");
-        } catch (GraphLoadException exception) {
-            showError("New City", exception.getMessage());
-        } catch (RuntimeException exception) {
-            AppLogger.error("Unable to reset the default city graph", exception);
-            showError("New City", "The default city could not be loaded. Please try again.");
-        }
-    }
-
-    private void onLoadGraph() {
-        JFileChooser chooser = new JFileChooser();
-        chooser.setFileFilter(new FileNameExtensionFilter("City Graph Data (*.dat)", "dat"));
-        if (chooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) {
-            return;
-        }
-        try {
-            routeService.loadGraphFromFile(chooser.getSelectedFile());
-            onRefresh();
-            resultPanel.appendLog("Loaded graph from " + chooser.getSelectedFile().getName());
-        } catch (GraphLoadException exception) {
-            showError("Load Graph", exception.getMessage());
-        } catch (RuntimeException exception) {
-            AppLogger.error("Unable to load graph from the selected file", exception);
-            showError("Load Graph", "The selected graph could not be loaded. Check the file and try again.");
-        }
-    }
-
-    private void onSaveGraph() {
-        JFileChooser chooser = new JFileChooser();
-        chooser.setFileFilter(new FileNameExtensionFilter("City Graph Data (*.dat)", "dat"));
-        if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) {
-            return;
-        }
-
-        File selectedFile = chooser.getSelectedFile();
-        File targetFile = selectedFile.getName().toLowerCase().endsWith(".dat")
-                ? selectedFile
-                : new File(selectedFile.getParentFile(), selectedFile.getName() + ".dat");
-        if (targetFile.exists()) {
-            int overwrite = JOptionPane.showConfirmDialog(this,
-                    "A file named '" + targetFile.getName() + "' already exists. Replace it?",
-                    "Replace existing graph file", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
-            if (overwrite != JOptionPane.YES_OPTION) {
-                return;
-            }
-        }
-        try {
-            routeService.saveGraphToFile(targetFile);
-            resultPanel.appendLog("Saved graph to " + targetFile.getName());
-            updateStatus("Graph saved to " + targetFile.getName() + ".", UITheme.SUCCESS_COLOR);
-        } catch (GraphLoadException exception) {
-            showError("Save Graph", exception.getMessage());
-        } catch (RuntimeException exception) {
-            AppLogger.error("Unable to save graph to the selected file", exception);
-            showError("Save Graph", "The graph could not be saved to that location. Please try again.");
-        }
-    }
-
-    private void onSettings() {
-        SettingsDialog dialog = new SettingsDialog(this);
-        dialog.setVisible(true);
-        if (dialog.isConfirmed()) {
-            mapPanel.repaint();
-            resultPanel.appendLog("Settings updated.");
-            updateStatus("Settings updated.", UITheme.SUCCESS_COLOR);
-        }
-    }
-
-    private void confirmExit() {
-        int confirmation = JOptionPane.showConfirmDialog(this, "Are you sure you want to exit?", "Exit",
-                JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
-        if (confirmation == JOptionPane.YES_OPTION) {
-            dispose();
-            System.exit(0);
-        }
-    }
-
-    private void showError(String title, String message) {
-        String safeMessage = message == null || message.isBlank()
-                ? "The requested action could not be completed. Please try again."
-                : message;
-        JOptionPane.showMessageDialog(this, safeMessage, title, JOptionPane.ERROR_MESSAGE);
-    }
-
-    private double parseCoordinate(String value, String label) {
-        String normalized = value == null ? "" : value.trim();
-        if (normalized.isEmpty()) {
-            throw new IllegalArgumentException(label + " is required.");
-        }
-        try {
-            double coordinate = Double.parseDouble(normalized);
-            if (!Double.isFinite(coordinate)) {
-                throw new IllegalArgumentException(label + " must be a finite number.");
-            }
-            return coordinate;
-        } catch (NumberFormatException exception) {
-            throw new IllegalArgumentException(label + " must be a valid number.");
-        }
-    }
-
-    private double parsePositiveDistance(String value) {
-        String normalized = value == null ? "" : value.trim();
-        if (normalized.isEmpty()) {
-            throw new IllegalArgumentException("Road distance is required.");
-        }
-        try {
-            double distance = Double.parseDouble(normalized);
-            if (!Double.isFinite(distance) || distance <= 0) {
-                throw new IllegalArgumentException("Road distance must be a positive number.");
-            }
-            return distance;
-        } catch (NumberFormatException exception) {
-            throw new IllegalArgumentException("Road distance must be a valid number.");
-        }
-    }
-
     private void showAboutDialog() {
-        new AboutDialog(this).setVisible(true);
+        JOptionPane.showMessageDialog(this,
+                "Smart City Route Navigator\nVersion 2.0 Enterprise\n\nBuilt with Java 17, Swing, Dijkstra Engine & Gemini AI Integration.",
+                "About Application",
+                JOptionPane.INFORMATION_MESSAGE);
     }
 }

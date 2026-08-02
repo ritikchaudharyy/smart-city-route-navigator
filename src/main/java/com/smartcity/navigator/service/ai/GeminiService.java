@@ -816,40 +816,6 @@ public final class GeminiService {
         return null; // ambiguous or not found
     }
 
-    private static String describeApiError(GeminiApiException exception) {
-        String responseExcerpt = exception.responseBody == null ? "" : exception.responseBody.trim();
-        if (responseExcerpt.length() > 700) {
-            responseExcerpt = responseExcerpt.substring(0, 700) + "...";
-        }
-        return messageForApiError(exception.statusCode)
-                + " [HTTP " + exception.statusCode + "]"
-                + (responseExcerpt.isEmpty() ? "" : " " + responseExcerpt);
-    }
-
-    private static void dispatchSuccess(AIParserCallback callback, String sourceId, String destinationId) {
-        runOnEventDispatchThread(() -> callback.onSuccess(sourceId, destinationId));
-    }
-
-    private static void dispatchSuccess(AICommandCallback callback, AICommand command) {
-        runOnEventDispatchThread(() -> callback.onSuccess(command));
-    }
-
-    private static void dispatchFailure(AIParserCallback callback, String message) {
-        runOnEventDispatchThread(() -> callback.onFailure(message));
-    }
-
-    private static void dispatchFailure(AICommandCallback callback, String message) {
-        runOnEventDispatchThread(() -> callback.onFailure(message));
-    }
-
-    private static void runOnEventDispatchThread(Runnable action) {
-        if (SwingUtilities.isEventDispatchThread()) {
-            action.run();
-        } else {
-            SwingUtilities.invokeLater(action);
-        }
-    }
-
     private static final class GeminiApiException extends IOException {
         private final int statusCode;
         private final String responseBody;
