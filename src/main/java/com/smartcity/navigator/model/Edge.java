@@ -38,7 +38,7 @@ public final class Edge {
         if (sourceId.equals(destinationId)) {
             throw new IllegalArgumentException("Edge cannot connect a location to itself");
         }
-        if (weight <= 0) {
+        if (!Double.isFinite(weight) || weight <= 0) {
             throw new IllegalArgumentException("Edge weight must be positive, got: " + weight);
         }
         this.sourceId = sourceId;

@@ -39,6 +39,9 @@ public final class Location {
         if (name == null || name.isBlank()) {
             throw new IllegalArgumentException("Location name must not be null or blank");
         }
+        if (!Double.isFinite(x) || !Double.isFinite(y)) {
+            throw new IllegalArgumentException("Location coordinates must be finite numbers");
+        }
         this.id = id;
         this.name = name;
         this.x = x;
@@ -76,6 +79,9 @@ public final class Location {
     }
 
     public void setX(double x) {
+        if (!Double.isFinite(x)) {
+            throw new IllegalArgumentException("Location x coordinate must be a finite number");
+        }
         this.x = x;
     }
 
@@ -84,6 +90,9 @@ public final class Location {
     }
 
     public void setY(double y) {
+        if (!Double.isFinite(y)) {
+            throw new IllegalArgumentException("Location y coordinate must be a finite number");
+        }
         this.y = y;
     }
 

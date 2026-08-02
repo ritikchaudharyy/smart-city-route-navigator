@@ -4,35 +4,47 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Centralized logger for application events and startup diagnostics.
- * The implementation uses java.util.logging so the project remains dependency-free
- * while still offering a professional, configurable logging surface.
+ * Global application logger handling information, warnings, and system errors.
+ * This class is fully self-contained and handles all logging overloads.
  */
-public final class AppLogger {
+public class AppLogger {
 
-    private static final Logger LOGGER = Logger.getLogger("com.smartcity.navigator");
+    private static final Logger logger = Logger.getLogger("SmartCityNavigator");
 
-    private AppLogger() {
-        // Utility class.
-    }
+    // Prevent instantiation
+    private AppLogger() {}
 
-    public static Logger getLogger() {
-        return LOGGER;
-    }
-
+    /**
+     * Logs general informational messages.
+     * @param message The message to log
+     */
     public static void info(String message) {
-        LOGGER.info(message);
+        logger.log(Level.INFO, message);
     }
 
-    public static void warning(String message) {
-        LOGGER.warning(message);
+    /**
+     * Logs system warning messages.
+     * @param message The warning message to log
+     */
+    public static void warn(String message) {
+        logger.log(Level.WARNING, message);
     }
 
-    public static void severe(String message) {
-        LOGGER.log(Level.SEVERE, message);
+    /**
+     * Logs simple severe error messages.
+     * @param message The error message to log
+     */
+    public static void error(String message) {
+        logger.log(Level.SEVERE, message);
     }
 
-    public static void severe(String message, Throwable throwable) {
-        LOGGER.log(Level.SEVERE, message, throwable);
+    /**
+     * Logs severe error messages with an associated exception/throwable.
+     * Handles Exception, RuntimeException, InterruptedException, etc.
+     * * @param message   The error context message
+     * @param throwable The exception thrown
+     */
+    public static void error(String message, Throwable throwable) {
+        logger.log(Level.SEVERE, message, throwable);
     }
 }

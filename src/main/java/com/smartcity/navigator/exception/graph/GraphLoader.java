@@ -74,7 +74,7 @@ public final class GraphLoader {
      */
     public static CityGraph loadFromFile(File file) throws GraphLoadException {
         if (file == null || !file.exists()) {
-            throw new GraphLoadException("File does not exist: " + file);
+            throw new GraphLoadException("The selected graph file does not exist.");
         }
         try (BufferedReader reader = new BufferedReader(new FileReader(file, StandardCharsets.UTF_8))) {
             return parse(reader);
@@ -92,6 +92,12 @@ public final class GraphLoader {
      * @throws GraphLoadException if the file cannot be written
      */
     public static void saveToFile(CityGraph graph, File file) throws GraphLoadException {
+        if (graph == null) {
+            throw new GraphLoadException("There is no graph available to save.");
+        }
+        if (file == null) {
+            throw new GraphLoadException("Choose a file location before saving the graph.");
+        }
         try (PrintWriter writer = new PrintWriter(Files.newBufferedWriter(file.toPath(), StandardCharsets.UTF_8))) {
             writer.println("# Smart City Route Navigator - saved graph data");
             writer.println("# Locations");
@@ -125,7 +131,10 @@ public final class GraphLoader {
                 continue;
             }
 
-            String[] fields = trimmed.split(FIELD_SEPARATOR);
+            String[] fields = trimmed.split(FIELD_SEPARATOR, -1);
+            for (int index = 0; index < fields.length; index++) {
+                fields[index] = fields[index].trim();
+            }
             try {
                 if (LOCATION_DIRECTIVE.equals(fields[0])) {
                     parseLocation(graph, fields);
@@ -134,7 +143,7 @@ public final class GraphLoader {
                 } else {
                     throw new GraphLoadException("Unknown directive '" + fields[0] + "' at line " + lineNumber);
                 }
-            } catch (ArrayIndexOutOfBoundsException | NumberFormatException e) {
+            } catch (ArrayIndexOutOfBoundsException | IllegalArgumentException e) {
                 throw new GraphLoadException("Malformed data at line " + lineNumber + ": \"" + line + "\"", e);
             }
         }
@@ -147,6 +156,7 @@ public final class GraphLoader {
 
     private static void parseLocation(CityGraph graph, String[] fields) {
         // LOCATION,id,name,x,y
+        requireFieldCount(fields, 5, LOCATION_DIRECTIVE);
         String id = fields[1];
         String name = fields[2];
         double x = Double.parseDouble(fields[3]);
@@ -156,6 +166,7 @@ public final class GraphLoader {
 
     private static void parseRoad(CityGraph graph, String[] fields) throws GraphLoadException {
         // ROAD,sourceId,destinationId,weight
+        requireFieldCount(fields, 4, ROAD_DIRECTIVE);
         String sourceId = fields[1];
         String destinationId = fields[2];
         double weight = Double.parseDouble(fields[3]);
@@ -166,5 +177,12 @@ public final class GraphLoader {
                             + " (locations must be declared before roads)");
         }
         graph.addRoad(sourceId, destinationId, weight);
+    }
+
+    private static void requireFieldCount(String[] fields, int expectedCount, String directive) {
+        if (fields.length != expectedCount) {
+            throw new IllegalArgumentException(directive + " entries must contain exactly "
+                    + (expectedCount - 1) + " values");
+        }
     }
 }

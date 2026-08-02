@@ -67,6 +67,16 @@ class CityGraphTest {
     void addRoad_nonPositiveWeight_throws() {
         assertThrows(IllegalArgumentException.class, () -> graph.addRoad("A", "B", 0.0));
         assertThrows(IllegalArgumentException.class, () -> graph.addRoad("A", "B", -3.0));
+        assertThrows(IllegalArgumentException.class, () -> graph.addRoad("A", "B", Double.NaN));
+        assertThrows(IllegalArgumentException.class, () -> graph.addRoad("A", "B", Double.POSITIVE_INFINITY));
+    }
+
+    @Test
+    void addLocation_nonFiniteCoordinates_throws() {
+        assertThrows(IllegalArgumentException.class,
+                () -> graph.addLocation(new Location("D", "Delta", Double.NaN, 20.0)));
+        assertThrows(IllegalArgumentException.class,
+                () -> graph.addLocation(new Location("D", "Delta", 20.0, Double.NEGATIVE_INFINITY)));
     }
 
     @Test
