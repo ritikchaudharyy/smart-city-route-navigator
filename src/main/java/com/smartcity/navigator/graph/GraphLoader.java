@@ -1,8 +1,5 @@
 package com.smartcity.navigator.graph;
 
-import com.smartcity.navigator.model.Edge;
-import com.smartcity.navigator.model.Location;
-
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -13,6 +10,9 @@ import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.Locale;
+
+import com.smartcity.navigator.model.Edge;
+import com.smartcity.navigator.model.Location;
 
 /**
  * Loads and saves {@link CityGraph} instances using a small, dependency-free
@@ -159,6 +159,15 @@ public final class GraphLoader {
         requireFieldCount(fields, 5, LOCATION_DIRECTIVE);
         String id = fields[1];
         String name = fields[2];
+        if (id == null || id.isEmpty()) {
+            throw new IllegalArgumentException("LOCATION id must not be empty");
+        }
+        if (name == null || name.isEmpty()) {
+            throw new IllegalArgumentException("LOCATION name must not be empty");
+        }
+        if (graph.hasLocation(id)) {
+            throw new IllegalArgumentException("Duplicate LOCATION id: '" + id + "'");
+        }
         double x = Double.parseDouble(fields[3]);
         double y = Double.parseDouble(fields[4]);
         graph.addLocation(new Location(id, name, x, y));
@@ -170,6 +179,16 @@ public final class GraphLoader {
         String sourceId = fields[1];
         String destinationId = fields[2];
         double weight = Double.parseDouble(fields[3]);
+
+        if (sourceId == null || sourceId.isEmpty() || destinationId == null || destinationId.isEmpty()) {
+            throw new GraphLoadException("ROAD endpoints must not be empty");
+        }
+        if (sourceId.equals(destinationId)) {
+            throw new GraphLoadException("ROAD cannot be a self-loop: " + sourceId);
+        }
+        if (weight <= 0) {
+            throw new GraphLoadException("ROAD weight must be positive: " + weight);
+        }
 
         if (!graph.hasLocation(sourceId) || !graph.hasLocation(destinationId)) {
             throw new GraphLoadException(

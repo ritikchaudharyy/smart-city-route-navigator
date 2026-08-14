@@ -1,8 +1,5 @@
 package com.smartcity.navigator.graph;
 
-import com.smartcity.navigator.model.Edge;
-import com.smartcity.navigator.model.Location;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -12,6 +9,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+
+import com.smartcity.navigator.model.Edge;
+import com.smartcity.navigator.model.Location;
 
 /**
  * Represents the city's road network as an undirected, weighted graph
@@ -63,8 +63,11 @@ public class CityGraph {
         if (location == null) {
             throw new IllegalArgumentException("Location must not be null");
         }
-        locations.put(location.getId(), location);
-        adjacencyList.putIfAbsent(location.getId(), new ArrayList<>());
+        synchronized (this) {
+            locations.put(location.getId(), location);
+            adjacencyList.putIfAbsent(location.getId(), new ArrayList<>());
+            cachedEdges = null;
+        }
     }
 
     /**
@@ -74,26 +77,28 @@ public class CityGraph {
      * @return {@code true} if a location was removed, {@code false} if no such location existed
      */
     public boolean removeLocation(String locationId) {
-        if (!locations.containsKey(locationId)) {
-            return false;
-        }
-        // Remove this location's own adjacency entry.
-        List<Edge> ownEdges = adjacencyList.remove(locationId);
+        synchronized (this) {
+            if (!locations.containsKey(locationId)) {
+                return false;
+            }
+            // Remove this location's own adjacency entry.
+            List<Edge> ownEdges = adjacencyList.remove(locationId);
 
-        // Remove any edge pointing at this location from every other location's list.
-        if (ownEdges != null) {
-            for (Edge edge : ownEdges) {
-                String neighborId = edge.getNeighbor(locationId);
-                List<Edge> neighborEdges = adjacencyList.get(neighborId);
-                if (neighborEdges != null) {
-                    neighborEdges.removeIf(e -> e.connects(locationId, neighborId));
+            // Remove any edge pointing at this location from every other location's list.
+            if (ownEdges != null) {
+                for (Edge edge : ownEdges) {
+                    String neighborId = edge.getNeighbor(locationId);
+                    List<Edge> neighborEdges = adjacencyList.get(neighborId);
+                    if (neighborEdges != null) {
+                        neighborEdges.removeIf(e -> e.connects(locationId, neighborId));
+                    }
                 }
             }
-        }
 
-        locations.remove(locationId);
-        cachedEdges = null; // this location's edges (if any) are gone; rebuild lazily next time
-        return true;
+            locations.remove(locationId);
+            cachedEdges = null; // this location's edges (if any) are gone; rebuild lazily next time
+            return true;
+        }
     }
 
     /**
@@ -114,10 +119,12 @@ public class CityGraph {
         }
         // A single Edge instance is shared by both endpoints' adjacency lists,
         // since the road is undirected and represents one physical connection.
-        Edge edge = new Edge(sourceId, destinationId, weight);
-        adjacencyList.get(sourceId).add(edge);
-        adjacencyList.get(destinationId).add(edge);
-        cachedEdges = null; // a new edge exists; rebuild lazily next time
+        synchronized (this) {
+            Edge edge = new Edge(sourceId, destinationId, weight);
+            adjacencyList.get(sourceId).add(edge);
+            adjacencyList.get(destinationId).add(edge);
+            cachedEdges = null; // a new edge exists; rebuild lazily next time
+        }
     }
 
     /**
@@ -128,35 +135,41 @@ public class CityGraph {
      * @return {@code true} if a road was removed, {@code false} if no such road existed
      */
     public boolean removeRoad(String sourceId, String destinationId) {
-        List<Edge> sourceEdges = adjacencyList.get(sourceId);
-        List<Edge> destEdges = adjacencyList.get(destinationId);
-        if (sourceEdges == null || destEdges == null) {
-            return false;
+        synchronized (this) {
+            List<Edge> sourceEdges = adjacencyList.get(sourceId);
+            List<Edge> destEdges = adjacencyList.get(destinationId);
+            if (sourceEdges == null || destEdges == null) {
+                return false;
+            }
+            boolean removed = sourceEdges.removeIf(e -> e.connects(sourceId, destinationId));
+            destEdges.removeIf(e -> e.connects(sourceId, destinationId));
+            if (removed) {
+                cachedEdges = null; // an edge is gone; rebuild lazily next time
+            }
+            return removed;
         }
-        boolean removed = sourceEdges.removeIf(e -> e.connects(sourceId, destinationId));
-        destEdges.removeIf(e -> e.connects(sourceId, destinationId));
-        if (removed) {
-            cachedEdges = null; // an edge is gone; rebuild lazily next time
-        }
-        return removed;
     }
 
     /**
      * Checks whether a direct road exists between two locations.
      */
     public boolean hasRoad(String sourceId, String destinationId) {
-        List<Edge> edges = adjacencyList.get(sourceId);
-        if (edges == null) {
-            return false;
+        synchronized (this) {
+            List<Edge> edges = adjacencyList.get(sourceId);
+            if (edges == null) {
+                return false;
+            }
+            return edges.stream().anyMatch(e -> e.connects(sourceId, destinationId));
         }
-        return edges.stream().anyMatch(e -> e.connects(sourceId, destinationId));
     }
 
     /**
      * Checks whether a location with the given id exists in the graph.
      */
     public boolean hasLocation(String locationId) {
-        return locations.containsKey(locationId);
+        synchronized (this) {
+            return locations.containsKey(locationId);
+        }
     }
 
     /**
@@ -166,7 +179,9 @@ public class CityGraph {
      * @return an {@link Optional} containing the location if found, empty otherwise
      */
     public Optional<Location> getLocation(String locationId) {
-        return Optional.ofNullable(locations.get(locationId));
+        synchronized (this) {
+            return Optional.ofNullable(locations.get(locationId));
+        }
     }
 
     /**
@@ -175,7 +190,9 @@ public class CityGraph {
      * {@link #removeLocation} to mutate the graph.
      */
     public Collection<Location> getAllLocations() {
-        return Collections.unmodifiableCollection(locations.values());
+        synchronized (this) {
+            return Collections.unmodifiableCollection(new ArrayList<>(locations.values()));
+        }
     }
 
     /**
@@ -189,14 +206,16 @@ public class CityGraph {
      * between infrequent graph edits.
      */
     public Set<Edge> getAllEdges() {
-        if (cachedEdges == null) {
-            Set<Edge> edges = new LinkedHashSet<>();
-            for (List<Edge> edgeList : adjacencyList.values()) {
-                edges.addAll(edgeList);
+        synchronized (this) {
+            if (cachedEdges == null) {
+                Set<Edge> edges = new LinkedHashSet<>();
+                for (List<Edge> edgeList : adjacencyList.values()) {
+                    edges.addAll(edgeList);
+                }
+                cachedEdges = Collections.unmodifiableSet(edges);
             }
-            cachedEdges = Collections.unmodifiableSet(edges);
+            return cachedEdges;
         }
-        return cachedEdges;
     }
 
     /**
@@ -208,15 +227,19 @@ public class CityGraph {
      * @throws IllegalArgumentException if the location doesn't exist
      */
     public List<Edge> getNeighbors(String locationId) {
-        requireLocation(locationId);
-        return Collections.unmodifiableList(adjacencyList.get(locationId));
+        synchronized (this) {
+            requireLocation(locationId);
+            return Collections.unmodifiableList(new ArrayList<>(adjacencyList.get(locationId)));
+        }
     }
 
     /**
      * @return the number of locations currently in the graph
      */
     public int locationCount() {
-        return locations.size();
+        synchronized (this) {
+            return locations.size();
+        }
     }
 
     /**
@@ -230,7 +253,9 @@ public class CityGraph {
      * @return {@code true} if the graph has no locations
      */
     public boolean isEmpty() {
-        return locations.isEmpty();
+        synchronized (this) {
+            return locations.isEmpty();
+        }
     }
 
     /**
@@ -238,9 +263,11 @@ public class CityGraph {
      * Used by the "New City" menu action.
      */
     public void clear() {
-        locations.clear();
-        adjacencyList.clear();
-        cachedEdges = null;
+        synchronized (this) {
+            locations.clear();
+            adjacencyList.clear();
+            cachedEdges = null;
+        }
     }
 
     private void requireLocation(String locationId) {

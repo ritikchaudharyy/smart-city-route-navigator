@@ -72,11 +72,17 @@ public class RouteService {
      * @return the shortest-path result, successful or otherwise
      */
     public PathResult findRoute(String sourceId, String destinationId) {
-        Optional<String> validationError = Validators.validateRouteSelection(sourceId, destinationId, graph);
+        // Snapshot the graph reference to avoid races while replacing the graph instance.
+        final CityGraph snapshot;
+        synchronized (this) {
+            snapshot = this.graph;
+        }
+
+        Optional<String> validationError = Validators.validateRouteSelection(sourceId, destinationId, snapshot);
         if (validationError.isPresent()) {
             return PathResult.failure(validationError.get());
         }
-        DijkstraAlgorithm algorithm = new DijkstraAlgorithm(graph);
+        DijkstraAlgorithm algorithm = new DijkstraAlgorithm(snapshot);
         return algorithm.findShortestPath(sourceId, destinationId);
     }
 
@@ -93,7 +99,9 @@ public class RouteService {
      *         the future {@code MapPanel} and status displays)
      */
     public CityGraph getGraph() {
-        return graph;
+        synchronized (this) {
+            return graph;
+        }
     }
 
     /**
@@ -110,7 +118,9 @@ public class RouteService {
      * @throws GraphLoadException if the bundled default city resource is missing or malformed
      */
     public void resetToDefaultCity() throws GraphLoadException {
-        this.graph = GraphLoader.loadDefaultCity();
+        synchronized (this) {
+            this.graph = GraphLoader.loadDefaultCity();
+        }
     }
 
     /**
@@ -121,7 +131,9 @@ public class RouteService {
      * @throws GraphLoadException if the file is missing, unreadable, or malformed
      */
     public void loadGraphFromFile(File file) throws GraphLoadException {
-        this.graph = GraphLoader.loadFromFile(file);
+        synchronized (this) {
+            this.graph = GraphLoader.loadFromFile(file);
+        }
     }
 
     /**
@@ -132,7 +144,12 @@ public class RouteService {
      * @throws GraphLoadException if the file cannot be written
      */
     public void saveGraphToFile(File file) throws GraphLoadException {
-        GraphLoader.saveToFile(graph, file);
+        // Snapshot to avoid concurrent replace while saving
+        final CityGraph snapshot;
+        synchronized (this) {
+            snapshot = this.graph;
+        }
+        GraphLoader.saveToFile(snapshot, file);
     }
 
     /**
@@ -144,11 +161,13 @@ public class RouteService {
         String normalizedId = Helpers.nullSafeTrim(id);
         String normalizedName = Helpers.nullSafeTrim(name);
 
-        Optional<String> validationError = Validators.validateNewLocation(normalizedId, normalizedName, graph);
-        if (validationError.isPresent()) {
-            throw new IllegalArgumentException(validationError.get());
+        synchronized (this) {
+            Optional<String> validationError = Validators.validateNewLocation(normalizedId, normalizedName, graph);
+            if (validationError.isPresent()) {
+                throw new IllegalArgumentException(validationError.get());
+            }
+            graph.addLocation(new Location(normalizedId, normalizedName, x, y));
         }
-        graph.addLocation(new Location(normalizedId, normalizedName, x, y));
     }
 
     /**
@@ -157,7 +176,9 @@ public class RouteService {
      * @return {@code true} if a location was removed, {@code false} if no such location existed
      */
     public boolean removeLocation(String id) {
-        return graph.removeLocation(id);
+        synchronized (this) {
+            return graph.removeLocation(id);
+        }
     }
 
     /**
@@ -170,11 +191,13 @@ public class RouteService {
         String normalizedSourceId = Helpers.nullSafeTrim(sourceId);
         String normalizedDestinationId = Helpers.nullSafeTrim(destinationId);
 
-        Optional<String> validationError = Validators.validateNewRoad(normalizedSourceId, normalizedDestinationId, weight, graph);
-        if (validationError.isPresent()) {
-            throw new IllegalArgumentException(validationError.get());
+        synchronized (this) {
+            Optional<String> validationError = Validators.validateNewRoad(normalizedSourceId, normalizedDestinationId, weight, graph);
+            if (validationError.isPresent()) {
+                throw new IllegalArgumentException(validationError.get());
+            }
+            graph.addRoad(normalizedSourceId, normalizedDestinationId, weight);
         }
-        graph.addRoad(normalizedSourceId, normalizedDestinationId, weight);
     }
 
     /**
@@ -183,6 +206,8 @@ public class RouteService {
      * @return {@code true} if a road was removed, {@code false} if no such road existed
      */
     public boolean removeRoad(String sourceId, String destinationId) {
-        return graph.removeRoad(sourceId, destinationId);
+        synchronized (this) {
+            return graph.removeRoad(sourceId, destinationId);
+        }
     }
 }
