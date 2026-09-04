@@ -301,6 +301,10 @@ public final class RoutePanel extends JPanel {
 
         setLoadingState(true);
         showStatus("AI is matching your request to the city map...", UITheme.ACCENT_PRIMARY);
+        if (looksLikeGraphEdit(query)) {
+            handleAiCityCommand(query);
+            return;
+        }
         geminiService.parseRouteQueryAsync(query, routeService.getAllLocations(), new GeminiService.AIParserCallback() {
             @Override
             public void onSuccess(String sourceId, String destinationId) {
@@ -321,6 +325,65 @@ public final class RoutePanel extends JPanel {
                 showStatus(errorMessage, UITheme.ERROR_COLOR);
             }
         });
+    }
+
+    private void handleAiCityCommand(String query) {
+        geminiService.parseCityCommandAsync(query, routeService.getAllLocations(), new GeminiService.AICommandCallback() {
+            @Override
+            public void onSuccess(GeminiService.AICommand command) {
+                try {
+                    if (command.isOneWayRequested()) {
+                        throw new IllegalArgumentException("This graph supports two-way roads only.");
+                    }
+                    switch (command.getType()) {
+                        case FIND_ROUTE -> {
+                            selectItemById(sourceCombo, command.getSourceId());
+                            selectItemById(destinationCombo, command.getDestinationId());
+                            triggerRouteCalculation();
+                        }
+                        case ADD_LOCATION -> {
+                            Location anchor = routeService.getGraph().getLocation(command.getAnchorId()).orElseThrow();
+                            // AI commands provide an anchor and road distance, not map coordinates.
+                            // Place the new node diagonally from the anchor for a visible, deterministic layout.
+                                routeService.addLocationWithRoad(command.getLocationId(), command.getLocationName(),
+                                    anchor.getX() + 40, anchor.getY() + 40, command.getAnchorId(), command.getDistanceKm());
+                            mainFrame.graphWasModified("Location and connecting road added.");
+                        }
+                        case REMOVE_LOCATION -> {
+                            routeService.removeLocation(command.getLocationId());
+                            mainFrame.graphWasModified("Location removed.");
+                        }
+                        case ADD_ROAD -> {
+                            routeService.addRoad(command.getSourceId(), command.getDestinationId(), command.getDistanceKm());
+                            mainFrame.graphWasModified("Road added.");
+                        }
+                        case REMOVE_ROAD -> {
+                            if (routeService.removeRoad(command.getSourceId(), command.getDestinationId())) {
+                                mainFrame.graphWasModified("Road removed.");
+                            } else {
+                                throw new IllegalArgumentException("That road does not exist.");
+                            }
+                        }
+                    }
+                    showStatus("Graph command completed.", UITheme.SUCCESS_COLOR);
+                } catch (RuntimeException exception) {
+                    showStatus(exception.getMessage(), UITheme.ERROR_COLOR);
+                } finally {
+                    setLoadingState(false);
+                }
+            }
+
+            @Override
+            public void onFailure(String errorMessage) {
+                setLoadingState(false);
+                showStatus(errorMessage, UITheme.ERROR_COLOR);
+            }
+        });
+    }
+
+    private static boolean looksLikeGraphEdit(String query) {
+        String lower = query.toLowerCase(java.util.Locale.ROOT);
+        return lower.matches(".*\\b(add|remove|delete|insert|jodo|hatao|road|location|place)\\b.*");
     }
 
     private void triggerRouteCalculation() {

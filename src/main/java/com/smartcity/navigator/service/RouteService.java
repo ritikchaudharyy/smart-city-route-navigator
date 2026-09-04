@@ -113,13 +113,20 @@ public class RouteService {
 
     /**
      * Replaces the current graph with a fresh copy of the bundled default
-     * city. Backs the File &gt; New City menu action.
+    * city. Use {@link #createNewCity()} for a blank city.
      *
      * @throws GraphLoadException if the bundled default city resource is missing or malformed
      */
     public void resetToDefaultCity() throws GraphLoadException {
         synchronized (this) {
             this.graph = GraphLoader.loadDefaultCity();
+        }
+    }
+
+    /** Replaces the current graph with a blank city ready for editing. */
+    public void createNewCity() {
+        synchronized (this) {
+            this.graph = new CityGraph();
         }
     }
 
@@ -170,6 +177,33 @@ public class RouteService {
         }
     }
 
+    /** Adds a location and its initial connecting road as one validated operation. */
+    public void addLocationWithRoad(String id, String name, double x, double y,
+            String anchorId, double distanceKm) {
+        synchronized (this) {
+            String normalizedId = Helpers.nullSafeTrim(id);
+            String normalizedName = Helpers.nullSafeTrim(name);
+            String normalizedAnchorId = Helpers.nullSafeTrim(anchorId);
+            Optional<String> locationError = Validators.validateNewLocation(normalizedId, normalizedName, graph);
+            if (locationError.isPresent()) {
+                throw new IllegalArgumentException(locationError.get());
+            }
+            Optional<String> roadError = Validators.validateNewRoad(normalizedId, normalizedAnchorId, distanceKm, graph);
+            if (roadError.isPresent() && !roadError.get().startsWith("Both locations must exist")) {
+                throw new IllegalArgumentException(roadError.get());
+            }
+                graph.getLocation(normalizedAnchorId).orElseThrow(
+                    () -> new IllegalArgumentException("The anchor location does not exist."));
+            graph.addLocation(new Location(normalizedId, normalizedName, x, y));
+            try {
+                graph.addRoad(normalizedId, normalizedAnchorId, distanceKm);
+            } catch (RuntimeException exception) {
+                graph.removeLocation(normalizedId);
+                throw exception;
+            }
+        }
+    }
+
     /**
      * Removes a location (and every road connected to it) from the current graph.
      *
@@ -177,7 +211,7 @@ public class RouteService {
      */
     public boolean removeLocation(String id) {
         synchronized (this) {
-            return graph.removeLocation(id);
+            return graph.removeLocation(Helpers.nullSafeTrim(id));
         }
     }
 
@@ -207,7 +241,7 @@ public class RouteService {
      */
     public boolean removeRoad(String sourceId, String destinationId) {
         synchronized (this) {
-            return graph.removeRoad(sourceId, destinationId);
+            return graph.removeRoad(Helpers.nullSafeTrim(sourceId), Helpers.nullSafeTrim(destinationId));
         }
     }
 }

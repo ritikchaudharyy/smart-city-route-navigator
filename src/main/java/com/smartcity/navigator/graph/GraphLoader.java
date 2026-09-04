@@ -102,13 +102,16 @@ public final class GraphLoader {
             writer.println("# Smart City Route Navigator - saved graph data");
             writer.println("# Locations");
             for (Location location : graph.getAllLocations()) {
-                writer.printf(Locale.US, "%s,%s,%s,%.2f,%.2f%n",
-                        LOCATION_DIRECTIVE, location.getId(), location.getName(), location.getX(), location.getY());
+                writer.printf(Locale.US, "%s,%s,%s,%s,%s%n",
+                        LOCATION_DIRECTIVE, escapeField(location.getId()), escapeField(location.getName()), location.getX(), location.getY());
             }
             writer.println("# Roads");
             for (Edge edge : graph.getAllEdges()) {
-                writer.printf(Locale.US, "%s,%s,%s,%.2f%n",
-                        ROAD_DIRECTIVE, edge.getSourceId(), edge.getDestinationId(), edge.getWeight());
+                writer.printf(Locale.US, "%s,%s,%s,%s%n",
+                        ROAD_DIRECTIVE, escapeField(edge.getSourceId()), escapeField(edge.getDestinationId()), edge.getWeight());
+            }
+            if (writer.checkError()) {
+                throw new IOException("The graph file could not be written completely.");
             }
         } catch (IOException e) {
             throw new GraphLoadException("Failed to write graph file: " + file.getName(), e);
@@ -131,7 +134,7 @@ public final class GraphLoader {
                 continue;
             }
 
-            String[] fields = trimmed.split(FIELD_SEPARATOR, -1);
+            String[] fields = splitFields(trimmed);
             for (int index = 0; index < fields.length; index++) {
                 fields[index] = fields[index].trim();
             }
@@ -152,6 +155,40 @@ public final class GraphLoader {
             throw new GraphLoadException("Graph data contained no locations");
         }
         return graph;
+    }
+
+    private static String[] splitFields(String line) {
+        java.util.List<String> fields = new java.util.ArrayList<>();
+        StringBuilder field = new StringBuilder();
+        boolean quoted = false;
+        for (int index = 0; index < line.length(); index++) {
+            char character = line.charAt(index);
+            if (character == '"') {
+                if (quoted && index + 1 < line.length() && line.charAt(index + 1) == '"') {
+                    field.append('"');
+                    index++;
+                } else {
+                    quoted = !quoted;
+                }
+            } else if (character == FIELD_SEPARATOR.charAt(0) && !quoted) {
+                fields.add(field.toString().trim());
+                field.setLength(0);
+            } else {
+                field.append(character);
+            }
+        }
+        if (quoted) {
+            throw new IllegalArgumentException("Unclosed quoted field");
+        }
+        fields.add(field.toString().trim());
+        return fields.toArray(String[]::new);
+    }
+
+    private static String escapeField(String value) {
+        if (value.indexOf(',') < 0 && value.indexOf('"') < 0) {
+            return value;
+        }
+        return '"' + value.replace("\"", "\"\"") + '"';
     }
 
     private static void parseLocation(CityGraph graph, String[] fields) {

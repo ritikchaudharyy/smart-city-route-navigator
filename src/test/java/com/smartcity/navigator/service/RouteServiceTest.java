@@ -142,6 +142,13 @@ class RouteServiceTest {
     }
 
     @Test
+    void createNewCity_startsWithAnEmptyGraph() {
+        service.createNewCity();
+        assertTrue(service.isEmpty());
+        assertEquals(0, service.getGraph().roadCount());
+    }
+
+    @Test
     void constructor_rejectsNullGraph() {
         assertThrows(IllegalArgumentException.class, () -> new RouteService((CityGraph) null));
     }

@@ -260,7 +260,7 @@ public class CityGraph {
 
     /**
      * Removes every location and road, resetting the graph to empty.
-     * Used by the "New City" menu action.
+    * Useful when an existing graph instance must be emptied in place.
      */
     public void clear() {
         synchronized (this) {

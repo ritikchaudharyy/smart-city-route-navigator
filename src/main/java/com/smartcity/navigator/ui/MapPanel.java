@@ -2,18 +2,24 @@ package com.smartcity.navigator.ui;
 
 import java.awt.BasicStroke;
 import java.awt.Color;
+import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.awt.geom.Ellipse2D;
+import java.awt.geom.Point2D;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 import javax.swing.BorderFactory;
+import javax.swing.JMenuItem;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 
 import com.smartcity.navigator.graph.CityGraph;
 import com.smartcity.navigator.model.Edge;
@@ -35,6 +41,7 @@ public final class MapPanel extends JPanel {
     private CityGraph graph;
     private List<Location> highlightedRoute = List.of();
     private double zoom = 1.0;
+    private GraphInteractionHandler interactionHandler;
 
     public MapPanel() {
         setPreferredSize(new Dimension(600, 420));
@@ -43,6 +50,32 @@ public final class MapPanel extends JPanel {
         setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(UITheme.BORDER_COLOR, 1, true),
                 BorderFactory.createEmptyBorder(8, 8, 8, 8)));
+        addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent event) {
+                setCursor(Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR));
+            }
+
+            @Override
+            public void mouseExited(MouseEvent event) {
+                setCursor(Cursor.getDefaultCursor());
+            }
+
+            @Override
+            public void mousePressed(MouseEvent event) {
+                showContextMenu(event);
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent event) {
+                showContextMenu(event);
+            }
+        });
+    }
+
+    /** Installs the owner callback used by the map's context menus. */
+    public void setInteractionHandler(GraphInteractionHandler handler) {
+        interactionHandler = handler;
     }
 
     /** Sets (or replaces) the graph to render, clearing any existing route highlight. */
@@ -83,6 +116,105 @@ public final class MapPanel extends JPanel {
     private void setZoom(double requestedZoom) {
         zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, requestedZoom));
         repaint();
+    }
+
+    private void showContextMenu(MouseEvent event) {
+        if (!event.isPopupTrigger() || interactionHandler == null) {
+            return;
+        }
+        Hit hit = hitTest(event.getX(), event.getY());
+        JPopupMenu menu = new JPopupMenu();
+        if (hit.location != null) {
+            addMenuItem(menu, "Add Location Here", () -> interactionHandler.addLocation(hit.mapPoint.getX(), hit.mapPoint.getY()));
+            addMenuItem(menu, "Add Road from " + hit.location.getName(),
+                    () -> interactionHandler.addRoad(hit.location.getId(), null));
+            menu.addSeparator();
+            addMenuItem(menu, "Delete Location", () -> interactionHandler.deleteLocation(hit.location));
+        } else if (hit.edge != null) {
+            addMenuItem(menu, "Add Road", () -> interactionHandler.addRoad(null, null));
+            menu.addSeparator();
+            addMenuItem(menu, "Delete Road", () -> interactionHandler.deleteRoad(hit.edge));
+        } else {
+            addMenuItem(menu, "Add Location Here", () -> interactionHandler.addLocation(hit.mapPoint.getX(), hit.mapPoint.getY()));
+            if (graph != null && graph.locationCount() >= 2) {
+                addMenuItem(menu, "Add Road", () -> interactionHandler.addRoad(null, null));
+            }
+        }
+        menu.show(this, event.getX(), event.getY());
+    }
+
+    private void addMenuItem(JPopupMenu menu, String text, Runnable action) {
+        JMenuItem item = new JMenuItem(text);
+        item.addActionListener(event -> action.run());
+        menu.add(item);
+    }
+
+    /** Finds the nearest rendered node or road under a screen coordinate. */
+    Hit hitTest(int screenX, int screenY) {
+        Point2D point = toMapPoint(screenX, screenY);
+        if (point == null) {
+            return new Hit(null, null, point == null ? new Point2D.Double(screenX, screenY) : point);
+        }
+        for (Location location : graph.getAllLocations()) {
+            double distance = point.distance(location.getX(), location.getY());
+            if (distance <= NODE_RADIUS + 5.0 / currentScale()) {
+                return new Hit(location, null, point);
+            }
+        }
+        Edge nearestEdge = null;
+        double nearestDistance = Double.POSITIVE_INFINITY;
+        for (Edge edge : graph.getAllEdges()) {
+            Location source = graph.getLocation(edge.getSourceId()).orElse(null);
+            Location destination = graph.getLocation(edge.getDestinationId()).orElse(null);
+            if (source == null || destination == null) continue;
+            double distance = pointToSegmentDistance(point.getX(), point.getY(), source.getX(), source.getY(),
+                    destination.getX(), destination.getY());
+            if (distance < nearestDistance) {
+                nearestDistance = distance;
+                nearestEdge = edge;
+            }
+        }
+        return nearestDistance <= 7.0 / currentScale()
+                ? new Hit(null, nearestEdge, point) : new Hit(null, null, point);
+    }
+
+    private Point2D toMapPoint(int screenX, int screenY) {
+        if (graph == null || graph.isEmpty()) return null;
+        GraphBounds bounds = GraphBounds.from(graph.getAllLocations());
+        double scale = calculateScale(bounds);
+        return new Point2D.Double((screenX - getWidth() / 2.0 + bounds.centerX() * scale) / scale,
+                (screenY - getHeight() / 2.0 + bounds.centerY() * scale) / scale);
+    }
+
+    private double currentScale() {
+        return graph == null || graph.isEmpty() ? 1.0 : calculateScale(GraphBounds.from(graph.getAllLocations()));
+    }
+
+    private static double pointToSegmentDistance(double px, double py, double ax, double ay, double bx, double by) {
+        double dx = bx - ax;
+        double dy = by - ay;
+        if (dx == 0 && dy == 0) return Point2D.distance(px, py, ax, ay);
+        double t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy)));
+        return Point2D.distance(px, py, ax + t * dx, ay + t * dy);
+    }
+
+    public interface GraphInteractionHandler {
+        void addLocation(double x, double y);
+        void deleteLocation(Location location);
+        void addRoad(String sourceId, String destinationId);
+        void deleteRoad(Edge edge);
+    }
+
+    static final class Hit {
+        final Location location;
+        final Edge edge;
+        final Point2D mapPoint;
+
+        Hit(Location location, Edge edge, Point2D mapPoint) {
+            this.location = location;
+            this.edge = edge;
+            this.mapPoint = mapPoint;
+        }
     }
 
     @Override

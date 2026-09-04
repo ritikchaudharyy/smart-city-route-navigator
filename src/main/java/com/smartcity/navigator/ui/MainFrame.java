@@ -6,12 +6,15 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.io.File;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.ButtonGroup;
 import javax.swing.JButton;
+import javax.swing.JComboBox;
+import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JMenu;
@@ -21,10 +24,13 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
+import javax.swing.JTextField;
 import javax.swing.JToggleButton;
 import javax.swing.SwingConstants;
 
 import com.smartcity.navigator.graph.CityGraph;
+import com.smartcity.navigator.model.Edge;
+import com.smartcity.navigator.model.Location;
 import com.smartcity.navigator.model.PathResult;
 import com.smartcity.navigator.service.RouteService;
 import com.smartcity.navigator.service.ai.GeminiService;
@@ -43,7 +49,8 @@ public class MainFrame extends JFrame {
     // Core UI Panels
     private RoutePanel routePanel;
     private ResultPanel resultPanel;
-    private MapPanel mapPanel;
+    private MapPanel plannerMapPanel;
+    private MapPanel fullMapPanel;
 
     // View Switching
     private final CardLayout workspaceCardLayout = new CardLayout();
@@ -58,6 +65,8 @@ public class MainFrame extends JFrame {
     private JLabel workspaceTitle;
     private JLabel workspaceSubtitle;
     private JLabel graphStatusChip;
+    private boolean graphDirty;
+    private File currentGraphFile;
 
     public MainFrame(RouteService routeService, GeminiService geminiService) {
         this.routeService = routeService;
@@ -66,6 +75,7 @@ public class MainFrame extends JFrame {
         setTitle("Smart City Route Navigator - Enterprise Dashboard");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setMinimumSize(new Dimension(1280, 800));
+        setSize(new Dimension(1280, 800));
         setLocationRelativeTo(null);
 
         initComponents();
@@ -77,7 +87,41 @@ public class MainFrame extends JFrame {
     private void initComponents() {
         routePanel = new RoutePanel(this, routeService, geminiService);
         resultPanel = new ResultPanel();
-        mapPanel = new MapPanel();
+        plannerMapPanel = new MapPanel();
+        fullMapPanel = new MapPanel();
+        MapPanel.GraphInteractionHandler handler = new MapPanel.GraphInteractionHandler() {
+            @Override
+            public void addLocation(double x, double y) {
+                showAddLocationDialog(x, y);
+            }
+
+            @Override
+            public void deleteLocation(Location location) {
+                if (JOptionPane.showConfirmDialog(MainFrame.this,
+                        "Remove " + location.getName() + " and all connected roads?", "Confirm removal",
+                        JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE) == JOptionPane.YES_OPTION
+                        && routeService.removeLocation(location.getId())) {
+                    graphWasModified("Location removed.");
+                }
+            }
+
+            @Override
+            public void addRoad(String sourceId, String destinationId) {
+                showAddRoadDialog(sourceId, destinationId);
+            }
+
+            @Override
+            public void deleteRoad(Edge edge) {
+                if (JOptionPane.showConfirmDialog(MainFrame.this,
+                        "Remove road " + edge.getSourceId() + " ↔ " + edge.getDestinationId() + "?",
+                        "Confirm removal", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE) == JOptionPane.YES_OPTION
+                        && routeService.removeRoad(edge.getSourceId(), edge.getDestinationId())) {
+                    graphWasModified("Road removed.");
+                }
+            }
+        };
+        plannerMapPanel.setInteractionHandler(handler);
+        fullMapPanel.setInteractionHandler(handler);
 
         statusLabel = new JLabel("Ready");
         UITheme.styleStatusLabel(statusLabel);
@@ -89,17 +133,49 @@ public class MainFrame extends JFrame {
 
         JMenu fileMenu = new JMenu("File");
         UITheme.styleMenu(fileMenu);
+        JMenuItem newCityItem = createMenuItem("New City", IconFactory.IconType.NEW_CITY, e -> createNewCity());
+        JMenuItem loadItem = createMenuItem("Load Graph...", IconFactory.IconType.LOAD, e -> loadGraphFromFile());
+        JMenuItem saveItem = createMenuItem("Save Graph", IconFactory.IconType.SAVE, e -> saveGraphToFile(false));
+        JMenuItem saveAsItem = createMenuItem("Save Graph As...", IconFactory.IconType.SAVE, e -> saveGraphToFile(true));
+        fileMenu.add(newCityItem);
+        fileMenu.add(loadItem);
+        fileMenu.add(saveItem);
+        fileMenu.add(saveAsItem);
+        fileMenu.addSeparator();
         JMenuItem exitItem = new JMenuItem("Exit", IconFactory.getIcon(IconFactory.IconType.EXIT, 15, UITheme.LABEL_COLOR));
         UITheme.styleMenuItem(exitItem);
-        exitItem.addActionListener(e -> System.exit(0));
+        exitItem.addActionListener(e -> {
+            if (confirmDiscardChanges("exit the application")) {
+                dispose();
+                System.exit(0);
+            }
+        });
         fileMenu.add(exitItem);
 
         JMenu graphMenu = new JMenu("Graph");
         UITheme.styleMenu(graphMenu);
-        JMenuItem refreshItem = new JMenuItem("Reload Graph", IconFactory.getIcon(IconFactory.IconType.REFRESH, 15, UITheme.LABEL_COLOR));
-        UITheme.styleMenuItem(refreshItem);
-        refreshItem.addActionListener(e -> loadGraphData());
+        JMenuItem addLocationItem = createMenuItem("Add Location...", IconFactory.IconType.NEW_CITY, e -> showAddLocationDialog());
+        JMenuItem removeLocationItem = createMenuItem("Remove Location...", IconFactory.IconType.CLEAR, e -> showRemoveLocationDialog());
+        JMenuItem addRoadItem = createMenuItem("Add Road...", IconFactory.IconType.MAP, e -> showAddRoadDialog());
+        JMenuItem removeRoadItem = createMenuItem("Remove Road...", IconFactory.IconType.CLEAR, e -> showRemoveRoadDialog());
+        JMenuItem refreshItem = createMenuItem("Reload Graph", IconFactory.IconType.REFRESH, e -> reloadGraph());
+        graphMenu.add(addLocationItem);
+        graphMenu.add(removeLocationItem);
+        graphMenu.addSeparator();
+        graphMenu.add(addRoadItem);
+        graphMenu.add(removeRoadItem);
+        graphMenu.addSeparator();
         graphMenu.add(refreshItem);
+
+        JMenu viewMenu = new JMenu("View");
+        UITheme.styleMenu(viewMenu);
+        viewMenu.add(createMenuItem("Zoom In", IconFactory.IconType.ZOOM_IN, e -> zoomActiveMap(true)));
+        viewMenu.add(createMenuItem("Zoom Out", IconFactory.IconType.ZOOM_OUT, e -> zoomActiveMap(false)));
+        viewMenu.add(createMenuItem("Reset Map View", IconFactory.IconType.ZOOM_RESET, e -> resetActiveMapZoom()));
+        viewMenu.addSeparator();
+        viewMenu.add(createMenuItem("Light Map", IconFactory.IconType.MAP, e -> setDarkMode(false)));
+        viewMenu.add(createMenuItem("Dark Map", IconFactory.IconType.MAP, e -> setDarkMode(true)));
+        viewMenu.add(createMenuItem("Settings...", IconFactory.IconType.SETTINGS, e -> showSettingsDialog()));
 
         JMenu helpMenu = new JMenu("Help");
         UITheme.styleMenu(helpMenu);
@@ -110,14 +186,23 @@ public class MainFrame extends JFrame {
 
         menuBar.add(fileMenu);
         menuBar.add(graphMenu);
+        menuBar.add(viewMenu);
         menuBar.add(helpMenu);
         setJMenuBar(menuBar);
+    }
+
+    private JMenuItem createMenuItem(String text, IconFactory.IconType iconType, java.awt.event.ActionListener listener) {
+        JMenuItem item = new JMenuItem(text, IconFactory.getIcon(iconType, 15, UITheme.LABEL_COLOR));
+        UITheme.styleMenuItem(item);
+        item.addActionListener(listener);
+        return item;
     }
 
     private void setupLayout() {
         JPanel rootPanel = new JPanel(new BorderLayout());
         rootPanel.setBackground(UITheme.WINDOW_BACKGROUND);
 
+        rootPanel.add(buildMainToolBar(), BorderLayout.NORTH);
         rootPanel.add(buildSidebar(), BorderLayout.WEST);
 
         JPanel centerColumn = new JPanel(new BorderLayout());
@@ -133,6 +218,32 @@ public class MainFrame extends JFrame {
         rootPanel.add(buildStatusBar(), BorderLayout.SOUTH);
 
         setContentPane(rootPanel);
+    }
+
+    private JPanel buildMainToolBar() {
+        JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 6));
+        toolbar.setBackground(UITheme.WINDOW_BACKGROUND);
+        toolbar.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, UITheme.BORDER_COLOR));
+        addToolBarButton(toolbar, "New", IconFactory.IconType.NEW_CITY, e -> createNewCity());
+        addToolBarButton(toolbar, "Load", IconFactory.IconType.LOAD, e -> loadGraphFromFile());
+        addToolBarButton(toolbar, "Save", IconFactory.IconType.SAVE, e -> saveGraphToFile(false));
+        toolbar.add(Box.createHorizontalStrut(8));
+        addToolBarButton(toolbar, "Add Location", IconFactory.IconType.NEW_CITY, e -> showAddLocationDialog());
+        addToolBarButton(toolbar, "Delete Location", IconFactory.IconType.CLEAR, e -> showRemoveLocationDialog());
+        addToolBarButton(toolbar, "Add Road", IconFactory.IconType.MAP, e -> showAddRoadDialog());
+        addToolBarButton(toolbar, "Delete Road", IconFactory.IconType.CLEAR, e -> showRemoveRoadDialog());
+        toolbar.add(Box.createHorizontalStrut(8));
+        addToolBarButton(toolbar, "Settings", IconFactory.IconType.SETTINGS, e -> showSettingsDialog());
+        addToolBarButton(toolbar, "About", IconFactory.IconType.INFO, e -> showAboutDialog());
+        return toolbar;
+    }
+
+    private void addToolBarButton(JPanel toolbar, String text, IconFactory.IconType iconType,
+            java.awt.event.ActionListener listener) {
+        JButton button = new JButton(text, IconFactory.getIcon(iconType, 15, UITheme.HEADING_COLOR));
+        UITheme.styleSecondaryToolBarButton(button);
+        button.addActionListener(listener);
+        toolbar.add(button);
     }
 
     private JPanel buildSidebar() {
@@ -282,8 +393,8 @@ public class MainFrame extends JFrame {
 
         JPanel mapContainer = new JPanel(new BorderLayout());
         mapContainer.setBackground(UITheme.WINDOW_BACKGROUND);
-        mapContainer.add(buildMapToolbar(), BorderLayout.NORTH);
-        mapContainer.add(mapPanel, BorderLayout.CENTER);
+        mapContainer.add(buildMapToolbar(plannerMapPanel), BorderLayout.NORTH);
+        mapContainer.add(plannerMapPanel, BorderLayout.CENTER);
 
         JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, leftScroll, mapContainer);
         splitPane.setDividerLocation(390);
@@ -299,33 +410,33 @@ public class MainFrame extends JFrame {
         JPanel container = new JPanel(new BorderLayout(12, 12));
         container.setBackground(UITheme.WINDOW_BACKGROUND);
         container.setBorder(BorderFactory.createEmptyBorder(0, 12, 12, 12));
-        container.add(buildMapToolbar(), BorderLayout.NORTH);
-        container.add(mapPanel, BorderLayout.CENTER);
+        container.add(buildMapToolbar(fullMapPanel), BorderLayout.NORTH);
+        container.add(fullMapPanel, BorderLayout.CENTER);
         return container;
     }
 
-    private JPanel buildMapToolbar() {
+    private JPanel buildMapToolbar(MapPanel targetMapPanel) {
         JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 4));
         toolbar.setBackground(UITheme.WINDOW_BACKGROUND);
 
         JButton zoomIn = new JButton("Zoom In", IconFactory.getIcon(IconFactory.IconType.ZOOM_IN, 15, UITheme.HEADING_COLOR));
         UITheme.styleSecondaryToolBarButton(zoomIn);
         zoomIn.addActionListener(e -> {
-            mapPanel.zoomIn();
-            updateStatus("Zoomed to " + mapPanel.getZoomPercentage() + "%.", UITheme.SECONDARY_TEXT);
+            targetMapPanel.zoomIn();
+            updateStatus("Zoomed to " + targetMapPanel.getZoomPercentage() + "%.", UITheme.SECONDARY_TEXT);
         });
 
         JButton zoomOut = new JButton("Zoom Out", IconFactory.getIcon(IconFactory.IconType.ZOOM_OUT, 15, UITheme.HEADING_COLOR));
         UITheme.styleSecondaryToolBarButton(zoomOut);
         zoomOut.addActionListener(e -> {
-            mapPanel.zoomOut();
-            updateStatus("Zoomed to " + mapPanel.getZoomPercentage() + "%.", UITheme.SECONDARY_TEXT);
+            targetMapPanel.zoomOut();
+            updateStatus("Zoomed to " + targetMapPanel.getZoomPercentage() + "%.", UITheme.SECONDARY_TEXT);
         });
 
         JButton zoomReset = new JButton("Reset View", IconFactory.getIcon(IconFactory.IconType.ZOOM_RESET, 15, UITheme.HEADING_COLOR));
         UITheme.styleSecondaryToolBarButton(zoomReset);
         zoomReset.addActionListener(e -> {
-            mapPanel.resetZoom();
+            targetMapPanel.resetZoom();
             updateStatus("View reset to 100%.", UITheme.SECONDARY_TEXT);
         });
 
@@ -360,10 +471,12 @@ public class MainFrame extends JFrame {
         }
     }
 
-    public void loadGraphData() {
+    public final void loadGraphData() {
         try {
             CityGraph graph = routeService.getGraph();
-            mapPanel.setGraph(graph);
+            resultPanel.clear();
+            plannerMapPanel.setGraph(graph);
+            fullMapPanel.setGraph(graph);
             routePanel.loadLocations();
             int locationCount = graph.getAllLocations().size();
             updateStatus("Graph loaded with " + locationCount + " locations.", UITheme.SUCCESS_COLOR);
@@ -383,16 +496,36 @@ public class MainFrame extends JFrame {
         }
     }
 
+    private void reloadGraph() {
+        if (currentGraphFile == null) {
+            loadGraphData();
+            return;
+        }
+        if (!confirmDiscardChanges("reload the current graph file")) {
+            return;
+        }
+        try {
+            routeService.loadGraphFromFile(currentGraphFile);
+            graphDirty = false;
+            loadGraphData();
+            updateStatus("Graph reloaded from " + currentGraphFile.getName() + ".", UITheme.SUCCESS_COLOR);
+        } catch (Exception exception) {
+            showActionError("Reload Graph", exception);
+        }
+    }
+
     public void calculateAndDisplayRoute(String sourceId, String destinationId) {
         try {
             PathResult result = routeService.findRoute(sourceId, destinationId);
             resultPanel.displayResult(result);
 
             if (result.isPathFound()) {
-                mapPanel.highlightRoute(result.getRoute());
+                plannerMapPanel.highlightRoute(result.getRoute());
+                fullMapPanel.highlightRoute(result.getRoute());
                 updateStatus("Shortest route calculated successfully.", UITheme.SUCCESS_COLOR);
             } else {
-                mapPanel.clearHighlight();
+                plannerMapPanel.clearHighlight();
+                fullMapPanel.clearHighlight();
                 updateStatus("No valid route found between selected points.", UITheme.WARNING_COLOR);
             }
         } catch (Exception ex) {
@@ -402,7 +535,8 @@ public class MainFrame extends JFrame {
     }
 
     public void clearActiveRoute() {
-        mapPanel.clearHighlight();
+        plannerMapPanel.clearHighlight();
+        fullMapPanel.clearHighlight();
         resultPanel.clear();
         updateStatus("Active route cleared.", UITheme.SECONDARY_TEXT);
     }
@@ -413,9 +547,224 @@ public class MainFrame extends JFrame {
     }
 
     private void showAboutDialog() {
-        JOptionPane.showMessageDialog(this,
-                "Smart City Route Navigator\nVersion 2.0 Enterprise\n\nBuilt with Java 17, Swing, Dijkstra Engine & Gemini AI Integration.",
-                "About Application",
+        new AboutDialog(this).setVisible(true);
+    }
+
+    private void createNewCity() {
+        if (!confirmDiscardChanges("replace the current graph with the bundled default city")) {
+            return;
+        }
+        try {
+            routeService.createNewCity();
+            currentGraphFile = null;
+            graphDirty = false;
+            loadGraphData();
+            updateStatus("New empty city created.", UITheme.SUCCESS_COLOR);
+        } catch (Exception exception) {
+            showActionError("New City", exception);
+        }
+    }
+
+    private void loadGraphFromFile() {
+        if (!confirmDiscardChanges("load a different graph")) {
+            return;
+        }
+        JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("Load Graph");
+        if (chooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+        try {
+            routeService.loadGraphFromFile(chooser.getSelectedFile());
+            currentGraphFile = chooser.getSelectedFile();
+            graphDirty = false;
+            loadGraphData();
+            updateStatus("Loaded " + currentGraphFile.getName() + ".", UITheme.SUCCESS_COLOR);
+        } catch (Exception exception) {
+            showActionError("Load Graph", exception);
+        }
+    }
+
+    private void saveGraphToFile(boolean saveAs) {
+        File file = saveAs ? null : currentGraphFile;
+        if (file == null) {
+            JFileChooser chooser = new JFileChooser();
+            chooser.setDialogTitle("Save Graph");
+            if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) {
+                return;
+            }
+            file = chooser.getSelectedFile();
+            if (!file.getName().contains(".")) {
+                file = new File(file.getParentFile(), file.getName() + ".dat");
+            }
+        }
+        try {
+            routeService.saveGraphToFile(file);
+            currentGraphFile = file;
+            graphDirty = false;
+            updateStatus("Graph saved to " + file.getName() + ".", UITheme.SUCCESS_COLOR);
+        } catch (Exception exception) {
+            showActionError("Save Graph", exception);
+        }
+    }
+
+    private void showAddLocationDialog() {
+        showAddLocationDialog(Double.NaN, Double.NaN);
+    }
+
+    private void showAddLocationDialog(double initialX, double initialY) {
+        JPanel form = DialogHelper.createInputPanel();
+        JTextField idField = DialogHelper.addLabeledField(form, "ID");
+        JTextField nameField = DialogHelper.addLabeledField(form, "Name");
+        JTextField xField = DialogHelper.addLabeledField(form, "X coordinate");
+        JTextField yField = DialogHelper.addLabeledField(form, "Y coordinate");
+        if (Double.isFinite(initialX)) xField.setText(String.format("%.1f", initialX));
+        if (Double.isFinite(initialY)) yField.setText(String.format("%.1f", initialY));
+        if (JOptionPane.showConfirmDialog(this, form, "Add Location", JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.PLAIN_MESSAGE) != JOptionPane.OK_OPTION) {
+            return;
+        }
+        try {
+            double x = Double.parseDouble(xField.getText().trim());
+            double y = Double.parseDouble(yField.getText().trim());
+            routeService.addLocation(idField.getText(), nameField.getText(), x, y);
+            graphWasModified("Location added.");
+        } catch (Exception exception) {
+            showActionError("Add Location", exception);
+        }
+    }
+
+    private void showRemoveLocationDialog() {
+        JComboBox<String> locations = new JComboBox<>(locationIds());
+        if (locations.getItemCount() == 0) {
+            showNoGraphMessage();
+            return;
+        }
+        JPanel form = new JPanel(new BorderLayout(8, 0));
+        form.add(new JLabel("Location to remove:"), BorderLayout.WEST);
+        form.add(locations, BorderLayout.CENTER);
+        if (JOptionPane.showConfirmDialog(this, form, "Remove Location", JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.WARNING_MESSAGE) != JOptionPane.OK_OPTION) {
+            return;
+        }
+        String id = (String) locations.getSelectedItem();
+        if (JOptionPane.showConfirmDialog(this, "Remove " + id + " and all connected roads?", "Confirm removal",
+                JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE) == JOptionPane.YES_OPTION
+                && routeService.removeLocation(id)) {
+            graphWasModified("Location removed.");
+        }
+    }
+
+    private void showAddRoadDialog() {
+        showAddRoadDialog(null, null);
+    }
+
+    private void showAddRoadDialog(String initialSourceId, String initialDestinationId) {
+        String[] ids = locationIds();
+        if (ids.length < 2) {
+            showNoGraphMessage();
+            return;
+        }
+        JPanel form = DialogHelper.createInputPanel();
+        JComboBox<String> source = new JComboBox<>(ids);
+        JComboBox<String> destination = new JComboBox<>(ids);
+        if (initialSourceId != null) source.setSelectedItem(initialSourceId);
+        if (initialDestinationId != null) destination.setSelectedItem(initialDestinationId);
+        JTextField weight = DialogHelper.addLabeledField(form, "Distance (km)");
+        form.add(new JLabel("From")); form.add(source);
+        form.add(new JLabel("To")); form.add(destination);
+        // Keep the distance field last and visually consistent with other inputs.
+        UITheme.styleComboBox(source);
+        UITheme.styleComboBox(destination);
+        if (JOptionPane.showConfirmDialog(this, form, "Add Two-way Road", JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.PLAIN_MESSAGE) != JOptionPane.OK_OPTION) {
+            return;
+        }
+        try {
+            routeService.addRoad((String) source.getSelectedItem(), (String) destination.getSelectedItem(),
+                    Double.parseDouble(weight.getText().trim()));
+            graphWasModified("Road added.");
+        } catch (Exception exception) {
+            showActionError("Add Road", exception);
+        }
+    }
+
+    private void showRemoveRoadDialog() {
+        CityGraph graph = routeService.getGraph();
+        if (graph.roadCount() == 0) {
+            JOptionPane.showMessageDialog(this, "The current graph has no roads.", "Remove Road", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        String[] roads = graph.getAllEdges().stream()
+                .map(edge -> edge.getSourceId() + " ↔ " + edge.getDestinationId() + " (" + edge.getWeight() + " km)")
+                .toArray(String[]::new);
+        JComboBox<String> choices = new JComboBox<>(roads);
+        if (JOptionPane.showConfirmDialog(this, choices, "Remove Road", JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.WARNING_MESSAGE) != JOptionPane.OK_OPTION) {
+            return;
+        }
+        int selected = choices.getSelectedIndex();
+        var edge = graph.getAllEdges().stream().skip(selected).findFirst().orElse(null);
+        if (edge != null && routeService.removeRoad(edge.getSourceId(), edge.getDestinationId())) {
+            graphWasModified("Road removed.");
+        }
+    }
+
+    private String[] locationIds() {
+        return routeService.getAllLocations().stream().map(location -> location.getId()).toArray(String[]::new);
+    }
+
+    public void graphWasModified(String message) {
+        graphDirty = true;
+        loadGraphData();
+        updateStatus(message, UITheme.SUCCESS_COLOR);
+    }
+
+    private void showSettingsDialog() {
+        SettingsDialog dialog = new SettingsDialog(this);
+        dialog.setVisible(true);
+        if (dialog.isConfirmed()) {
+            plannerMapPanel.repaint();
+            fullMapPanel.repaint();
+            updateStatus("Settings applied.", UITheme.SUCCESS_COLOR);
+        }
+    }
+
+    private void setDarkMode(boolean enabled) {
+        com.smartcity.navigator.utils.AppSettings.getInstance().setDarkMode(enabled);
+        plannerMapPanel.repaint();
+        fullMapPanel.repaint();
+        updateStatus(enabled ? "Dark map mode enabled." : "Light map mode enabled.", UITheme.SUCCESS_COLOR);
+    }
+
+    private MapPanel activeMap() {
+        return navMapBtn != null && navMapBtn.isSelected() ? fullMapPanel : plannerMapPanel;
+    }
+
+    private void zoomActiveMap(boolean in) {
+        MapPanel map = activeMap();
+        if (in) map.zoomIn(); else map.zoomOut();
+        updateStatus("Map zoom: " + map.getZoomPercentage() + "%.", UITheme.SECONDARY_TEXT);
+    }
+
+    private void resetActiveMapZoom() {
+        activeMap().resetZoom();
+        updateStatus("Map view reset to 100%.", UITheme.SECONDARY_TEXT);
+    }
+
+    private boolean confirmDiscardChanges(String action) {
+        if (!graphDirty) return true;
+        return JOptionPane.showConfirmDialog(this, "Unsaved graph changes will be lost. Continue to " + action + "?",
+                "Unsaved changes", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE) == JOptionPane.YES_OPTION;
+    }
+
+    private void showNoGraphMessage() {
+        JOptionPane.showMessageDialog(this, "Add at least two locations before editing roads.", "Graph editor",
                 JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    private void showActionError(String action, Exception exception) {
+        AppLogger.error(action + " failed", exception);
+        JOptionPane.showMessageDialog(this, exception.getMessage(), action, JOptionPane.ERROR_MESSAGE);
     }
 }
